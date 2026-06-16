@@ -1,0 +1,165 @@
+package honeypot
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"math/big"
+	"strconv"
+	"strings"
+	"sync/atomic"
+	"time"
+)
+
+type runtimeFingerprint struct {
+	redisBuildID string
+	processID    int
+	runID        string
+	masterReplID string
+
+	usedMemory     atomic.Int64
+	usedMemoryRSS  atomic.Int64
+	usedMemoryPeak atomic.Int64
+	usedMemoryLua  int64
+	fragmentation  float64
+	lruClockOffset int64
+
+	clientRecentMaxInputBuffer  int64
+	clientRecentMaxOutputBuffer int64
+	latestForkUsec              int64
+
+	cpuSysBase          float64
+	cpuUserBase         float64
+	cpuSysChildrenBase  float64
+	cpuUserChildrenBase float64
+
+	rdbLastSaveTime      atomic.Int64
+	rdbLastBgsaveTimeSec atomic.Int64
+	rdbChangesSinceSave  atomic.Int64
+}
+
+func newRuntimeFingerprint(profile RedisProfile) *runtimeFingerprint {
+	usedMemory := randomInt64(950_000, 3_200_000)
+	if profile.Name == "current8" {
+		usedMemory = randomInt64(1_900_000, 5_500_000)
+	}
+
+	peak := usedMemory + randomInt64(0, usedMemory/3)
+	fragmentation := randomFloat64(1.65, 3.80)
+	rss := int64(float64(usedMemory) * fragmentation)
+	usedMemoryLua := randomInt64(34*1024, 56*1024)
+	now := time.Now().Unix()
+
+	fp := &runtimeFingerprint{
+		redisBuildID: randomHex(16),
+		processID:    int(randomInt64(300, 65000)),
+		runID:        randomHex(40),
+		masterReplID: randomHex(40),
+
+		usedMemoryLua:  usedMemoryLua,
+		fragmentation:  fragmentation,
+		lruClockOffset: randomInt64(0, 1<<24),
+
+		clientRecentMaxInputBuffer:  randomInt64(2, 128),
+		clientRecentMaxOutputBuffer: randomInt64(0, 16),
+		latestForkUsec:              randomInt64(120, 2600),
+
+		cpuSysBase:          randomFloat64(0.010, 0.450),
+		cpuUserBase:         randomFloat64(0.010, 0.600),
+		cpuSysChildrenBase:  randomFloat64(0.000, 0.035),
+		cpuUserChildrenBase: randomFloat64(0.000, 0.045),
+	}
+	fp.usedMemory.Store(usedMemory)
+	fp.usedMemoryRSS.Store(rss)
+	fp.usedMemoryPeak.Store(peak)
+	fp.rdbLastSaveTime.Store(now - randomInt64(30, 3600))
+	fp.rdbLastBgsaveTimeSec.Store(randomInt64(-1, 3))
+	return fp
+}
+
+func (f *runtimeFingerprint) markDirty(changes int64) {
+	if changes <= 0 {
+		return
+	}
+	f.rdbChangesSinceSave.Add(changes)
+	f.updateMemoryForChange(changes)
+}
+
+func (f *runtimeFingerprint) markSaved() {
+	f.rdbChangesSinceSave.Store(0)
+	f.rdbLastSaveTime.Store(time.Now().Unix())
+	f.rdbLastBgsaveTimeSec.Store(randomInt64(0, 2))
+}
+
+func (f *runtimeFingerprint) updateMemoryForChange(changes int64) {
+	delta := changes * randomInt64(48, 512)
+	usedMemory := f.usedMemory.Add(delta)
+	for {
+		peak := f.usedMemoryPeak.Load()
+		if usedMemory <= peak {
+			break
+		}
+		newPeak := usedMemory + randomInt64(0, 16*1024)
+		if f.usedMemoryPeak.CompareAndSwap(peak, newPeak) {
+			break
+		}
+	}
+	f.usedMemoryRSS.Store(int64(float64(usedMemory) * f.fragmentation))
+}
+
+func (f *runtimeFingerprint) lruClock(uptimeSeconds int64) int64 {
+	return (f.lruClockOffset + uptimeSeconds) % (1 << 24)
+}
+
+func (f *runtimeFingerprint) cpuSys(uptimeSeconds int64) float64 {
+	return f.cpuSysBase + float64(uptimeSeconds)*0.0017
+}
+
+func (f *runtimeFingerprint) cpuUser(uptimeSeconds int64) float64 {
+	return f.cpuUserBase + float64(uptimeSeconds)*0.0021
+}
+
+func formatRedisBytes(bytes int64) string {
+	const (
+		kib = 1024
+		mib = 1024 * kib
+		gib = 1024 * mib
+	)
+	switch {
+	case bytes >= gib:
+		return fmt.Sprintf("%.2fG", float64(bytes)/gib)
+	case bytes >= mib:
+		return fmt.Sprintf("%.2fM", float64(bytes)/mib)
+	case bytes >= kib:
+		return fmt.Sprintf("%.2fK", float64(bytes)/kib)
+	default:
+		return strconv.FormatInt(bytes, 10) + "B"
+	}
+}
+
+func randomHex(bytesLen int) string {
+	buf := make([]byte, bytesLen/2)
+	if _, err := rand.Read(buf); err != nil {
+		return strings.Repeat("0", bytesLen)
+	}
+	return hex.EncodeToString(buf)
+}
+
+func randomInt64(min int64, max int64) int64 {
+	if max <= min {
+		return min
+	}
+	n, err := rand.Int(rand.Reader, big.NewInt(max-min+1))
+	if err != nil {
+		return min
+	}
+	return min + n.Int64()
+}
+
+func randomFloat64(min float64, max float64) float64 {
+	if max <= min {
+		return min
+	}
+	n := randomInt64(0, 1_000_000)
+	return min + (float64(n)/1_000_000)*(max-min)
+}

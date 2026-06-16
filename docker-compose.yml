@@ -1,0 +1,25 @@
+services:
+  redishoneypot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: redishoneypot:local
+    user: "${REDISHONEYPOT_UID:-1000}:${REDISHONEYPOT_GID:-1000}"
+    ports:
+      - "6379:6379/tcp"
+    volumes:
+      - ./logs:/var/log/redishoneypot
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 128m
+    networks:
+      - redishoneypot
+
+networks:
+  redishoneypot:
