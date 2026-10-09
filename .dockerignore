@@ -1,0 +1,10 @@
+.git
+.gitignore
+RedisHoneyPot
+logs/*
+!logs/.gitkeep
+*.log
+tmp/
+dist/
+build/
+coverage.out

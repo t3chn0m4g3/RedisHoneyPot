@@ -1,0 +1,350 @@
+[
+  {
+    "name": "ping",
+    "reply": "+PONG\r\n"
+  },
+  {
+    "name": "ping_arg",
+    "reply": "$5\r\nhello\r\n"
+  },
+  {
+    "name": "echo_arity",
+    "reply": "-ERR wrong number of arguments for 'echo' command\r\n"
+  },
+  {
+    "name": "get_arity",
+    "reply": "-ERR wrong number of arguments for 'get' command\r\n"
+  },
+  {
+    "name": "unknown_noargs",
+    "reply": "-ERR unknown command 'FOOBAR'\r\n"
+  },
+  {
+    "name": "unknown_args",
+    "reply": "-ERR unknown command 'FOOBAR', with args beginning with: 'a' 'b c' \r\n"
+  },
+  {
+    "name": "unknown_inline",
+    "reply": "-ERR unknown command 'FOOBAR', with args beginning with: 'a' 'b' \r\n"
+  },
+  {
+    "name": "config_unknown_sub",
+    "reply": "-ERR unknown subcommand 'FOO'. Try CONFIG HELP.\r\n"
+  },
+  {
+    "name": "client_unknown_sub",
+    "reply": "-ERR unknown subcommand 'FOO'. Try CLIENT HELP.\r\n"
+  },
+  {
+    "name": "command_unknown_sub",
+    "reply": "-ERR unknown subcommand 'FOO'. Try COMMAND HELP.\r\n"
+  },
+  {
+    "name": "module_unknown_sub",
+    "reply": "-ERR unknown subcommand 'FOO'. Try MODULE HELP.\r\n"
+  },
+  {
+    "name": "auth_nopass",
+    "reply": "-ERR AUTH \u003cpassword\u003e called without any password configured for the default user. Are you sure your configuration is correct?\r\n"
+  },
+  {
+    "name": "auth_user",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "hello_noargs",
+    "reply": "*14\r\n$6\r\nserver\r\n$5\r\nredis\r\n$7\r\nversion\r\n$5\r\n8.8.0\r\n$5\r\nproto\r\n:2\r\n$2\r\nid\r\n:13\r\n$4\r\nmode\r\n$10\r\nstandalone\r\n$4\r\nrole\r\n$6\r\nmaster\r\n$7\r\nmodules\r\n*5\r\n*8\r\n$4\r\nname\r\n$6\r\nsearch\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$43\r\n/usr/local/lib/redis/modules//redisearch.so\r\n$4\r\nargs\r\n*0\r\n*8\r\n$4\r\nname\r\n$10\r\ntimeseries\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$48\r\n/usr/local/lib/redis/modules//redistimeseries.so\r\n$4\r\nargs\r\n*0\r\n*8\r\n$4\r\nname\r\n$2\r\nbf\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$43\r\n/usr/local/lib/redis/modules//redisbloom.so\r\n$4\r\nargs\r\n*0\r\n*8\r\n$4\r\nname\r\n$9\r\nvectorset\r\n$3\r\nver\r\n:1\r\n$4\r\npath\r\n$0\r\n\r\n$4\r\nargs\r\n*0\r\n*8\r\n$4\r\nname\r\n$6\r\nReJSON\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$39\r\n/usr/local/lib/redis/modules//rejson.so\r\n$4\r\nargs\r\n*0\r\n"
+  },
+  {
+    "name": "hello_3",
+    "reply": "%7\r\n$6\r\nserver\r\n$5\r\nredis\r\n$7\r\nversion\r\n$5\r\n8.8.0\r\n$5\r\nproto\r\n:3\r\n$2\r\nid\r\n:13\r\n$4\r\nmode\r\n$10\r\nstandalone\r\n$4\r\nrole\r\n$6\r\nmaster\r\n$7\r\nmodules\r\n*5\r\n%4\r\n$4\r\nname\r\n$6\r\nsearch\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$43\r\n/usr/local/lib/redis/modules//redisearch.so\r\n$4\r\nargs\r\n*0\r\n%4\r\n$4\r\nname\r\n$10\r\ntimeseries\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$48\r\n/usr/local/lib/redis/modules//redistimeseries.so\r\n$4\r\nargs\r\n*0\r\n%4\r\n$4\r\nname\r\n$2\r\nbf\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$43\r\n/usr/local/lib/redis/modules//redisbloom.so\r\n$4\r\nargs\r\n*0\r\n%4\r\n$4\r\nname\r\n$9\r\nvectorset\r\n$3\r\nver\r\n:1\r\n$4\r\npath\r\n$0\r\n\r\n$4\r\nargs\r\n*0\r\n%4\r\n$4\r\nname\r\n$6\r\nReJSON\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$39\r\n/usr/local/lib/redis/modules//rejson.so\r\n$4\r\nargs\r\n*0\r\n"
+  },
+  {
+    "name": "hello_back_2",
+    "reply": "*14\r\n$6\r\nserver\r\n$5\r\nredis\r\n$7\r\nversion\r\n$5\r\n8.8.0\r\n$5\r\nproto\r\n:2\r\n$2\r\nid\r\n:13\r\n$4\r\nmode\r\n$10\r\nstandalone\r\n$4\r\nrole\r\n$6\r\nmaster\r\n$7\r\nmodules\r\n*5\r\n*8\r\n$4\r\nname\r\n$6\r\nsearch\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$43\r\n/usr/local/lib/redis/modules//redisearch.so\r\n$4\r\nargs\r\n*0\r\n*8\r\n$4\r\nname\r\n$10\r\ntimeseries\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$48\r\n/usr/local/lib/redis/modules//redistimeseries.so\r\n$4\r\nargs\r\n*0\r\n*8\r\n$4\r\nname\r\n$2\r\nbf\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$43\r\n/usr/local/lib/redis/modules//redisbloom.so\r\n$4\r\nargs\r\n*0\r\n*8\r\n$4\r\nname\r\n$9\r\nvectorset\r\n$3\r\nver\r\n:1\r\n$4\r\npath\r\n$0\r\n\r\n$4\r\nargs\r\n*0\r\n*8\r\n$4\r\nname\r\n$6\r\nReJSON\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$39\r\n/usr/local/lib/redis/modules//rejson.so\r\n$4\r\nargs\r\n*0\r\n"
+  },
+  {
+    "name": "hello_bad",
+    "reply": "-NOPROTO unsupported protocol version\r\n"
+  },
+  {
+    "name": "client_setname",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "client_getname",
+    "reply": "$5\r\nprobe\r\n"
+  },
+  {
+    "name": "client_setinfo",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "client_id",
+    "reply": ":13\r\n"
+  },
+  {
+    "name": "client_info",
+    "reply": "$458\r\nid=13 addr=172.17.0.1:61078 laddr=172.17.0.3:6379 fd=22 name=probe age=0 idle=0 flags=N db=0 sub=0 psub=0 ssub=0 multi=-1 watch=0 qbuf=26 qbuf-free=20448 argv-mem=10 multi-mem=0 rbs=16384 rbp=16384 obl=0 oll=0 omem=0 omem-shared=0 omem-unshared=0 tot-mem=38170 events=r cmd=client|info user=default redir=-1 resp=2 lib-name=probe lib-ver= io-thread=0 tot-net-in=538 tot-net-out=2743 tot-cmds=12 read-events=22 avg-pipeline-len-sum=22 avg-pipeline-len-cnt=22\n\r\n"
+  },
+  {
+    "name": "client_list",
+    "reply": "$458\r\nid=13 addr=172.17.0.1:61078 laddr=172.17.0.3:6379 fd=22 name=probe age=0 idle=0 flags=N db=0 sub=0 psub=0 ssub=0 multi=-1 watch=0 qbuf=26 qbuf-free=20448 argv-mem=10 multi-mem=0 rbs=16384 rbp=16384 obl=0 oll=0 omem=0 omem-shared=0 omem-unshared=0 tot-mem=38170 events=r cmd=client|list user=default redir=-1 resp=2 lib-name=probe lib-ver= io-thread=0 tot-net-in=564 tot-net-out=3209 tot-cmds=13 read-events=23 avg-pipeline-len-sum=23 avg-pipeline-len-cnt=23\n\r\n"
+  },
+  {
+    "name": "command_count",
+    "reply": ":436\r\n"
+  },
+  {
+    "name": "command_info_get",
+    "reply": "*1\r\n*10\r\n$3\r\nget\r\n:2\r\n*2\r\n+readonly\r\n+fast\r\n:1\r\n:1\r\n:1\r\n*3\r\n+@read\r\n+@string\r\n+@fast\r\n*0\r\n*1\r\n*6\r\n$5\r\nflags\r\n*2\r\n+RO\r\n+access\r\n$12\r\nbegin_search\r\n*4\r\n$4\r\ntype\r\n$5\r\nindex\r\n$4\r\nspec\r\n*2\r\n$5\r\nindex\r\n:1\r\n$9\r\nfind_keys\r\n*4\r\n$4\r\ntype\r\n$5\r\nrange\r\n$4\r\nspec\r\n*6\r\n$7\r\nlastkey\r\n:0\r\n$7\r\nkeystep\r\n:1\r\n$5\r\nlimit\r\n:0\r\n*0\r\n"
+  },
+  {
+    "name": "command_info_unknown",
+    "reply": "*1\r\n$-1\r\n"
+  },
+  {
+    "name": "command_docs_get",
+    "reply": "*2\r\n$3\r\nget\r\n*10\r\n$7\r\nsummary\r\n$34\r\nReturns the string value of a key.\r\n$5\r\nsince\r\n$5\r\n1.0.0\r\n$5\r\ngroup\r\n$6\r\nstring\r\n$10\r\ncomplexity\r\n$4\r\nO(1)\r\n$9\r\narguments\r\n*1\r\n*8\r\n$4\r\nname\r\n$3\r\nkey\r\n$4\r\ntype\r\n$3\r\nkey\r\n$12\r\ndisplay_text\r\n$3\r\nkey\r\n$14\r\nkey_spec_index\r\n:0\r\n"
+  },
+  {
+    "name": "info_default",
+    "reply": "$6863\r\n# Server\r\nredis_version:8.8.0\r\nredis_git_sha1:00000000\r\nredis_git_dirty:1\r\nredis_build_id:25cf6baa3b28e0dc\r\nredis_mode:standalone\r\nos:Linux 7.0.14-linuxkit aarch64\r\narch_bits:64\r\nmonotonic_clock:ARM CNTVCT @ 24 ticks/us\r\nmultiplexing_api:epoll\r\natomicvar_api:c11-builtin\r\ngcc_version:14.2.0\r\nprocess_id:1\r\nprocess_supervised:no\r\nrun_id:caa41fa0ee9ed6d20b28aa956e0c462bf86fc24e\r\ntcp_port:6379\r\nserver_time_usec:1791550822252736\r\nuptime_in_seconds:0\r\nuptime_in_days:0\r\nhz:10\r\nconfigured_hz:10\r\nlru_clock:13165926\r\nexecutable:/data/redis-server\r\nconfig_file:\r\nio_threads_active:0\r\nlistener0:name=tcp,bind=*,bind=-::*,port=6379\r\n\r\n# Clients\r\nconnected_clients:1\r\ncluster_connections:0\r\nmaxclients:10000\r\nclient_recent_max_input_buffer:0\r\nclient_recent_max_output_buffer:0\r\nblocked_clients:0\r\ntracking_clients:0\r\npubsub_clients:0\r\nwatching_clients:0\r\nclients_in_timeout_table:0\r\nactive_clients:3\r\ntotal_watched_keys:0\r\ntotal_blocking_keys:0\r\ntotal_blocking_keys_on_nokey:0\r\n\r\n# Memory\r\nused_memory:1780360\r\nused_memory_human:1.70M\r\nused_memory_rss:29097984\r\nused_memory_rss_human:27.75M\r\nused_memory_peak:1911864\r\nused_memory_peak_human:1.82M\r\nused_memory_peak_time:1791550822\r\nused_memory_peak_perc:93.12%\r\nused_memory_overhead:1436016\r\nused_memory_startup:1368240\r\nused_memory_dataset:344344\r\nused_memory_dataset_perc:83.55%\r\nallocator_allocated:22601120\r\nallocator_active:27852800\r\nallocator_resident:31457280\r\nallocator_muzzy:0\r\ntotal_system_memory:16745033728\r\ntotal_system_memory_human:15.60G\r\nused_memory_lua:32768\r\nused_memory_vm_eval:32768\r\nused_memory_lua_human:32.00K\r\nused_memory_scripts_eval:0\r\nnumber_of_cached_scripts:0\r\nnumber_of_functions:0\r\nnumber_of_libraries:0\r\nused_memory_vm_functions:34816\r\nused_memory_vm_total:67584\r\nused_memory_vm_total_human:66.00K\r\nused_memory_functions:192\r\nused_memory_scripts:192\r\nused_memory_scripts_human:192B\r\nmaxmemory:0\r\nmaxmemory_human:0B\r\nmaxmemory_policy:noeviction\r\nallocator_frag_ratio:1.27\r\nallocator_frag_bytes:3423776\r\nallocator_rss_ratio:1.13\r\nallocator_rss_bytes:3604480\r\nrss_overhead_ratio:0.93\r\nrss_overhead_bytes:-2359296\r\nmem_fragmentation_ratio:20.58\r\nmem_fragmentation_bytes:27684248\r\nmem_not_counted_for_evict:0\r\nmem_replication_backlog:0\r\nmem_total_replication_buffers:0\r\nmem_replica_full_sync_buffer:0\r\nmem_clients_slaves:0\r\nmem_clients_normal:0\r\nmem_clients_normal_shared:0\r\nmem_clients_normal_unshared:0\r\nmem_cluster_slot_migration_output_buffer:0\r\nmem_cluster_slot_migration_input_buffer:0\r\nmem_cluster_slot_migration_input_buffer_peak:0\r\nmem_cluster_links:0\r\nmem_aof_buffer:0\r\nmem_allocator:jemalloc-5.3.0\r\nmem_overhead_db_hashtable_rehashing:0\r\nactive_defrag_running:0\r\nlazyfree_pending_objects:0\r\nlazyfreed_objects:0\r\n\r\n# Persistence\r\nloading:0\r\nasync_loading:0\r\ncurrent_cow_peak:0\r\ncurrent_cow_size:0\r\ncurrent_cow_size_age:0\r\ncurrent_fork_perc:0.00\r\ncurrent_save_keys_processed:0\r\ncurrent_save_keys_total:0\r\nrdb_changes_since_last_save:0\r\nrdb_bgsave_in_progress:0\r\nrdb_last_save_time:1791550822\r\nrdb_last_bgsave_status:ok\r\nrdb_last_bgsave_time_sec:-1\r\nrdb_current_bgsave_time_sec:-1\r\nrdb_saves:0\r\nrdb_saves_consecutive_failures:0\r\nrdb_last_cow_size:0\r\nrdb_last_load_keys_expired:0\r\nrdb_last_load_keys_loaded:0\r\naof_enabled:0\r\naof_rewrite_in_progress:0\r\naof_rewrite_scheduled:0\r\naof_last_rewrite_time_sec:-1\r\naof_current_rewrite_time_sec:-1\r\naof_last_bgrewrite_status:ok\r\naof_rewrites:0\r\naof_rewrites_consecutive_failures:0\r\naof_last_write_status:ok\r\naof_last_cow_size:0\r\nmodule_fork_in_progress:0\r\nmodule_fork_last_cow_size:0\r\n\r\n# Threads\r\nio_thread_0:clients=1,reads=39,writes=43\r\n\r\n# Stats\r\ntotal_connections_received:3\r\ntotal_commands_processed:33\r\ninstantaneous_ops_per_sec:0\r\ntotal_net_input_bytes:930\r\ntotal_net_output_bytes:617242\r\ntotal_net_repl_input_bytes:0\r\ntotal_net_repl_output_bytes:0\r\ninstantaneous_input_kbps:0.01\r\ninstantaneous_output_kbps:0.00\r\ninstantaneous_input_repl_kbps:0.00\r\ninstantaneous_output_repl_kbps:0.00\r\nrejected_connections:0\r\nsync_full:0\r\nsync_partial_ok:0\r\nsync_partial_err:0\r\nexpired_subkeys:0\r\nexpired_subkeys_active:0\r\nexpired_keys:0\r\nexpired_keys_active:0\r\nexpired_stale_perc:0.00\r\nexpired_time_cap_reached_count:0\r\nexpire_cycle_cpu_milliseconds:0\r\nevicted_keys:0\r\nevicted_clients:0\r\nevicted_scripts:0\r\ntotal_eviction_exceeded_time:0\r\ncurrent_eviction_exceeded_time:0\r\nkeyspace_hits:0\r\nkeyspace_misses:0\r\npubsub_channels:0\r\npubsub_patterns:0\r\npubsubshard_channels:0\r\nlatest_fork_usec:0\r\ntotal_forks:0\r\nmigrate_cached_sockets:0\r\nslave_expires_tracked_keys:0\r\nactive_defrag_hits:0\r\nactive_defrag_misses:0\r\nactive_defrag_key_hits:0\r\nactive_defrag_key_misses:0\r\ntotal_active_defrag_time:0\r\ncurrent_active_defrag_time:0\r\ntracking_total_keys:0\r\ntracking_total_items:0\r\ntracking_total_prefixes:0\r\nunexpected_error_replies:0\r\ntotal_error_replies:11\r\ndump_payload_sanitizations:0\r\ntotal_reads_processed:39\r\ntotal_writes_processed:43\r\nio_threaded_reads_processed:0\r\nio_threaded_writes_processed:0\r\nio_threaded_total_prefetch_batches:0\r\nio_threaded_total_prefetch_entries:0\r\nclient_query_buffer_limit_disconnections:0\r\nclient_output_buffer_limit_disconnections:0\r\nreply_buffer_shrinks:0\r\nreply_buffer_expands:0\r\neventloop_cycles:50\r\neventloop_duration_sum:2940\r\neventloop_duration_cmd_sum:1713\r\ninstantaneous_eventloop_cycles_per_sec:2\r\ninstantaneous_eventloop_duration_usec:0\r\neventloop_cycles_with_clients_processing:36\r\ntotal_client_processing_events:37\r\navg_pipeline_length_sum:37\r\navg_pipeline_length_cnt:37\r\navg_pipeline_length:1.00\r\nslowlog_commands_count:0\r\nslowlog_commands_time_ms_max:0.00\r\nslowlog_commands_time_ms_sum:0.00\r\nacl_access_denied_auth:0\r\nacl_access_denied_cmd:0\r\nacl_access_denied_key:0\r\nacl_access_denied_channel:0\r\nacl_access_denied_tls_cert:0\r\n\r\n# Replication\r\nrole:master\r\nconnected_slaves:0\r\nmaster_failover_state:no-failover\r\nmaster_replid:b3ac4e547f8fdc7fca0a4466567f36c2577ad804\r\nmaster_replid2:0000000000000000000000000000000000000000\r\nmaster_repl_offset:0\r\nsecond_repl_offset:-1\r\nrepl_backlog_active:0\r\nrepl_backlog_size:1048576\r\nrepl_backlog_first_byte_offset:0\r\nrepl_backlog_histlen:0\r\n\r\n# CPU\r\nused_cpu_sys:0.012089\r\nused_cpu_user:0.014774\r\nused_cpu_sys_children:0.003768\r\nused_cpu_user_children:0.005206\r\nused_cpu_sys_main_thread:0.008985\r\nused_cpu_user_main_thread:0.012409\r\n\r\n# Hotkeys\r\n\r\n# Modules\r\nmodule:name=search,ver=80800,api=1,filters=0,usedby=[],using=[ReJSON],options=[handle-io-errors]\r\nmodule:name=timeseries,ver=80800,api=1,filters=0,usedby=[],using=[],options=[handle-io-errors]\r\nmodule:name=bf,ver=80800,api=1,filters=0,usedby=[],using=[],options=[handle-io-errors]\r\nmodule:name=vectorset,ver=1,api=1,filters=0,usedby=[],using=[],options=[handle-io-errors|handle-repl-async-load]\r\nmodule:name=ReJSON,ver=80800,api=1,filters=0,usedby=[search],using=[],options=[handle-io-errors]\r\n\r\n# Errorstats\r\nerrorstat_ERR:count=10\r\nerrorstat_NOPROTO:count=1\r\n\r\n# Cluster\r\ncluster_enabled:0\r\n\r\n# Keyspace\r\n\r\n# Keysizes\r\n\r\n"
+  },
+  {
+    "name": "info_server",
+    "reply": "$625\r\n# Server\r\nredis_version:8.8.0\r\nredis_git_sha1:00000000\r\nredis_git_dirty:1\r\nredis_build_id:25cf6baa3b28e0dc\r\nredis_mode:standalone\r\nos:Linux 7.0.14-linuxkit aarch64\r\narch_bits:64\r\nmonotonic_clock:ARM CNTVCT @ 24 ticks/us\r\nmultiplexing_api:epoll\r\natomicvar_api:c11-builtin\r\ngcc_version:14.2.0\r\nprocess_id:1\r\nprocess_supervised:no\r\nrun_id:caa41fa0ee9ed6d20b28aa956e0c462bf86fc24e\r\ntcp_port:6379\r\nserver_time_usec:1791550822253201\r\nuptime_in_seconds:0\r\nuptime_in_days:0\r\nhz:10\r\nconfigured_hz:10\r\nlru_clock:13165926\r\nexecutable:/data/redis-server\r\nconfig_file:\r\nio_threads_active:0\r\nlistener0:name=tcp,bind=*,bind=-::*,port=6379\r\n\r\n"
+  },
+  {
+    "name": "info_all",
+    "reply": "$9558\r\n# Server\r\nredis_version:8.8.0\r\nredis_git_sha1:00000000\r\nredis_git_dirty:1\r\nredis_build_id:25cf6baa3b28e0dc\r\nredis_mode:standalone\r\nos:Linux 7.0.14-linuxkit aarch64\r\narch_bits:64\r\nmonotonic_clock:ARM CNTVCT @ 24 ticks/us\r\nmultiplexing_api:epoll\r\natomicvar_api:c11-builtin\r\ngcc_version:14.2.0\r\nprocess_id:1\r\nprocess_supervised:no\r\nrun_id:caa41fa0ee9ed6d20b28aa956e0c462bf86fc24e\r\ntcp_port:6379\r\nserver_time_usec:1791550822253538\r\nuptime_in_seconds:0\r\nuptime_in_days:0\r\nhz:10\r\nconfigured_hz:10\r\nlru_clock:13165926\r\nexecutable:/data/redis-server\r\nconfig_file:\r\nio_threads_active:0\r\nlistener0:name=tcp,bind=*,bind=-::*,port=6379\r\n\r\n# Clients\r\nconnected_clients:1\r\ncluster_connections:0\r\nmaxclients:10000\r\nclient_recent_max_input_buffer:0\r\nclient_recent_max_output_buffer:0\r\nblocked_clients:0\r\ntracking_clients:0\r\npubsub_clients:0\r\nwatching_clients:0\r\nclients_in_timeout_table:0\r\nactive_clients:3\r\ntotal_watched_keys:0\r\ntotal_blocking_keys:0\r\ntotal_blocking_keys_on_nokey:0\r\n\r\n# Memory\r\nused_memory:1780472\r\nused_memory_human:1.70M\r\nused_memory_rss:29097984\r\nused_memory_rss_human:27.75M\r\nused_memory_peak:1911864\r\nused_memory_peak_human:1.82M\r\nused_memory_peak_time:1791550822\r\nused_memory_peak_perc:93.13%\r\nused_memory_overhead:1436016\r\nused_memory_startup:1368240\r\nused_memory_dataset:344456\r\nused_memory_dataset_perc:83.56%\r\nallocator_allocated:22601120\r\nallocator_active:27852800\r\nallocator_resident:31457280\r\nallocator_muzzy:0\r\ntotal_system_memory:16745033728\r\ntotal_system_memory_human:15.60G\r\nused_memory_lua:32768\r\nused_memory_vm_eval:32768\r\nused_memory_lua_human:32.00K\r\nused_memory_scripts_eval:0\r\nnumber_of_cached_scripts:0\r\nnumber_of_functions:0\r\nnumber_of_libraries:0\r\nused_memory_vm_functions:34816\r\nused_memory_vm_total:67584\r\nused_memory_vm_total_human:66.00K\r\nused_memory_functions:192\r\nused_memory_scripts:192\r\nused_memory_scripts_human:192B\r\nmaxmemory:0\r\nmaxmemory_human:0B\r\nmaxmemory_policy:noeviction\r\nallocator_frag_ratio:1.27\r\nallocator_frag_bytes:3423776\r\nallocator_rss_ratio:1.13\r\nallocator_rss_bytes:3604480\r\nrss_overhead_ratio:0.93\r\nrss_overhead_bytes:-2359296\r\nmem_fragmentation_ratio:20.58\r\nmem_fragmentation_bytes:27684248\r\nmem_not_counted_for_evict:0\r\nmem_replication_backlog:0\r\nmem_total_replication_buffers:0\r\nmem_replica_full_sync_buffer:0\r\nmem_clients_slaves:0\r\nmem_clients_normal:0\r\nmem_clients_normal_shared:0\r\nmem_clients_normal_unshared:0\r\nmem_cluster_slot_migration_output_buffer:0\r\nmem_cluster_slot_migration_input_buffer:0\r\nmem_cluster_slot_migration_input_buffer_peak:0\r\nmem_cluster_links:0\r\nmem_aof_buffer:0\r\nmem_allocator:jemalloc-5.3.0\r\nmem_overhead_db_hashtable_rehashing:0\r\nactive_defrag_running:0\r\nlazyfree_pending_objects:0\r\nlazyfreed_objects:0\r\n\r\n# Persistence\r\nloading:0\r\nasync_loading:0\r\ncurrent_cow_peak:0\r\ncurrent_cow_size:0\r\ncurrent_cow_size_age:0\r\ncurrent_fork_perc:0.00\r\ncurrent_save_keys_processed:0\r\ncurrent_save_keys_total:0\r\nrdb_changes_since_last_save:0\r\nrdb_bgsave_in_progress:0\r\nrdb_last_save_time:1791550822\r\nrdb_last_bgsave_status:ok\r\nrdb_last_bgsave_time_sec:-1\r\nrdb_current_bgsave_time_sec:-1\r\nrdb_saves:0\r\nrdb_saves_consecutive_failures:0\r\nrdb_last_cow_size:0\r\nrdb_last_load_keys_expired:0\r\nrdb_last_load_keys_loaded:0\r\naof_enabled:0\r\naof_rewrite_in_progress:0\r\naof_rewrite_scheduled:0\r\naof_last_rewrite_time_sec:-1\r\naof_current_rewrite_time_sec:-1\r\naof_last_bgrewrite_status:ok\r\naof_rewrites:0\r\naof_rewrites_consecutive_failures:0\r\naof_last_write_status:ok\r\naof_last_cow_size:0\r\nmodule_fork_in_progress:0\r\nmodule_fork_last_cow_size:0\r\n\r\n# Threads\r\nio_thread_0:clients=1,reads=41,writes=45\r\n\r\n# Stats\r\ntotal_connections_received:3\r\ntotal_commands_processed:35\r\ninstantaneous_ops_per_sec:0\r\ntotal_net_input_bytes:979\r\ntotal_net_output_bytes:624747\r\ntotal_net_repl_input_bytes:0\r\ntotal_net_repl_output_bytes:0\r\ninstantaneous_input_kbps:0.01\r\ninstantaneous_output_kbps:0.00\r\ninstantaneous_input_repl_kbps:0.00\r\ninstantaneous_output_repl_kbps:0.00\r\nrejected_connections:0\r\nsync_full:0\r\nsync_partial_ok:0\r\nsync_partial_err:0\r\nexpired_subkeys:0\r\nexpired_subkeys_active:0\r\nexpired_keys:0\r\nexpired_keys_active:0\r\nexpired_stale_perc:0.00\r\nexpired_time_cap_reached_count:0\r\nexpire_cycle_cpu_milliseconds:0\r\nevicted_keys:0\r\nevicted_clients:0\r\nevicted_scripts:0\r\ntotal_eviction_exceeded_time:0\r\ncurrent_eviction_exceeded_time:0\r\nkeyspace_hits:0\r\nkeyspace_misses:0\r\npubsub_channels:0\r\npubsub_patterns:0\r\npubsubshard_channels:0\r\nlatest_fork_usec:0\r\ntotal_forks:0\r\nmigrate_cached_sockets:0\r\nslave_expires_tracked_keys:0\r\nactive_defrag_hits:0\r\nactive_defrag_misses:0\r\nactive_defrag_key_hits:0\r\nactive_defrag_key_misses:0\r\ntotal_active_defrag_time:0\r\ncurrent_active_defrag_time:0\r\ntracking_total_keys:0\r\ntracking_total_items:0\r\ntracking_total_prefixes:0\r\nunexpected_error_replies:0\r\ntotal_error_replies:11\r\ndump_payload_sanitizations:0\r\ntotal_reads_processed:41\r\ntotal_writes_processed:45\r\nio_threaded_reads_processed:0\r\nio_threaded_writes_processed:0\r\nio_threaded_total_prefetch_batches:0\r\nio_threaded_total_prefetch_entries:0\r\nclient_query_buffer_limit_disconnections:0\r\nclient_output_buffer_limit_disconnections:0\r\nreply_buffer_shrinks:0\r\nreply_buffer_expands:0\r\neventloop_cycles:52\r\neventloop_duration_sum:3019\r\neventloop_duration_cmd_sum:1755\r\ninstantaneous_eventloop_cycles_per_sec:2\r\ninstantaneous_eventloop_duration_usec:0\r\neventloop_cycles_with_clients_processing:38\r\ntotal_client_processing_events:39\r\navg_pipeline_length_sum:39\r\navg_pipeline_length_cnt:39\r\navg_pipeline_length:1.00\r\nslowlog_commands_count:0\r\nslowlog_commands_time_ms_max:0.00\r\nslowlog_commands_time_ms_sum:0.00\r\nacl_access_denied_auth:0\r\nacl_access_denied_cmd:0\r\nacl_access_denied_key:0\r\nacl_access_denied_channel:0\r\nacl_access_denied_tls_cert:0\r\n\r\n# Replication\r\nrole:master\r\nconnected_slaves:0\r\nmaster_failover_state:no-failover\r\nmaster_replid:b3ac4e547f8fdc7fca0a4466567f36c2577ad804\r\nmaster_replid2:0000000000000000000000000000000000000000\r\nmaster_repl_offset:0\r\nsecond_repl_offset:-1\r\nrepl_backlog_active:0\r\nrepl_backlog_size:1048576\r\nrepl_backlog_first_byte_offset:0\r\nrepl_backlog_histlen:0\r\n\r\n# CPU\r\nused_cpu_sys:0.012178\r\nused_cpu_user:0.014774\r\nused_cpu_sys_children:0.003768\r\nused_cpu_user_children:0.005206\r\nused_cpu_sys_main_thread:0.009075\r\nused_cpu_user_main_thread:0.012409\r\n\r\n# Hotkeys\r\n\r\n# Modules\r\nmodule:name=search,ver=80800,api=1,filters=0,usedby=[],using=[ReJSON],options=[handle-io-errors]\r\nmodule:name=timeseries,ver=80800,api=1,filters=0,usedby=[],using=[],options=[handle-io-errors]\r\nmodule:name=bf,ver=80800,api=1,filters=0,usedby=[],using=[],options=[handle-io-errors]\r\nmodule:name=vectorset,ver=1,api=1,filters=0,usedby=[],using=[],options=[handle-io-errors|handle-repl-async-load]\r\nmodule:name=ReJSON,ver=80800,api=1,filters=0,usedby=[search],using=[],options=[handle-io-errors]\r\n\r\n# Commandstats\r\ncmdstat_auth:calls=2,usec=2,usec_per_call=1.00,rejected_calls=0,failed_calls=1\r\ncmdstat_ping:calls=3,usec=4,usec_per_call=1.33,rejected_calls=0,failed_calls=0\r\ncmdstat_command:calls=1,usec=610,usec_per_call=610.00,rejected_calls=0,failed_calls=0\r\ncmdstat_command|count:calls=1,usec=9,usec_per_call=9.00,rejected_calls=0,failed_calls=0\r\ncmdstat_command|info:calls=2,usec=6,usec_per_call=3.00,rejected_calls=0,failed_calls=0\r\ncmdstat_command|docs:calls=2,usec=765,usec_per_call=382.50,rejected_calls=0,failed_calls=0\r\ncmdstat_hello:calls=4,usec=8,usec_per_call=2.00,rejected_calls=0,failed_calls=1\r\ncmdstat_get:calls=0,usec=0,usec_per_call=0.00,rejected_calls=1,failed_calls=0\r\ncmdstat_info:calls=11,usec=261,usec_per_call=23.73,rejected_calls=0,failed_calls=0\r\ncmdstat_client|setname:calls=1,usec=1,usec_per_call=1.00,rejected_calls=0,failed_calls=0\r\ncmdstat_client|setinfo:calls=1,usec=1,usec_per_call=1.00,rejected_calls=0,failed_calls=0\r\ncmdstat_client|id:calls=1,usec=1,usec_per_call=1.00,rejected_calls=0,failed_calls=0\r\ncmdstat_client|list:calls=2,usec=13,usec_per_call=6.50,rejected_calls=0,failed_calls=0\r\ncmdstat_client|info:calls=1,usec=6,usec_per_call=6.00,rejected_calls=0,failed_calls=0\r\ncmdstat_client|getname:calls=1,usec=0,usec_per_call=0.00,rejected_calls=0,failed_calls=0\r\ncmdstat_module|list:calls=1,usec=2,usec_per_call=2.00,rejected_calls=0,failed_calls=0\r\ncmdstat_config|get:calls=1,usec=96,usec_per_call=96.00,rejected_calls=0,failed_calls=0\r\ncmdstat_echo:calls=0,usec=0,usec_per_call=0.00,rejected_calls=1,failed_calls=0\r\n\r\n# Errorstats\r\nerrorstat_ERR:count=10\r\nerrorstat_NOPROTO:count=1\r\n\r\n# Latencystats\r\nlatency_percentiles_usec_auth:p50=1.003,p99=1.003,p99.9=1.003\r\nlatency_percentiles_usec_ping:p50=1.003,p99=2.007,p99.9=2.007\r\nlatency_percentiles_usec_command:p50=610.303,p99=610.303,p99.9=610.303\r\nlatency_percentiles_usec_command|count:p50=9.023,p99=9.023,p99.9=9.023\r\nlatency_percentiles_usec_command|info:p50=1.003,p99=5.023,p99.9=5.023\r\nlatency_percentiles_usec_command|docs:p50=3.007,p99=765.951,p99.9=765.951\r\nlatency_percentiles_usec_hello:p50=2.007,p99=3.007,p99.9=3.007\r\nlatency_percentiles_usec_info:p50=5.023,p99=76.287,p99.9=76.287\r\nlatency_percentiles_usec_client|setname:p50=1.003,p99=1.003,p99.9=1.003\r\nlatency_percentiles_usec_client|setinfo:p50=1.003,p99=1.003,p99.9=1.003\r\nlatency_percentiles_usec_client|id:p50=1.003,p99=1.003,p99.9=1.003\r\nlatency_percentiles_usec_client|list:p50=4.015,p99=9.023,p99.9=9.023\r\nlatency_percentiles_usec_client|info:p50=6.015,p99=6.015,p99.9=6.015\r\nlatency_percentiles_usec_client|getname:p50=0.001,p99=0.001,p99.9=0.001\r\nlatency_percentiles_usec_module|list:p50=2.007,p99=2.007,p99.9=2.007\r\nlatency_percentiles_usec_config|get:p50=96.255,p99=96.255,p99.9=96.255\r\n\r\n# Cluster\r\ncluster_enabled:0\r\n\r\n# Keyspace\r\n\r\n# Keysizes\r\n\r\n"
+  },
+  {
+    "name": "info_everything",
+    "reply": "$10530\r\n# Server\r\nredis_version:8.8.0\r\nredis_git_sha1:00000000\r\nredis_git_dirty:1\r\nredis_build_id:25cf6baa3b28e0dc\r\nredis_mode:standalone\r\nos:Linux 7.0.14-linuxkit aarch64\r\narch_bits:64\r\nmonotonic_clock:ARM CNTVCT @ 24 ticks/us\r\nmultiplexing_api:epoll\r\natomicvar_api:c11-builtin\r\ngcc_version:14.2.0\r\nprocess_id:1\r\nprocess_supervised:no\r\nrun_id:caa41fa0ee9ed6d20b28aa956e0c462bf86fc24e\r\ntcp_port:6379\r\nserver_time_usec:1791550822253962\r\nuptime_in_seconds:0\r\nuptime_in_days:0\r\nhz:10\r\nconfigured_hz:10\r\nlru_clock:13165926\r\nexecutable:/data/redis-server\r\nconfig_file:\r\nio_threads_active:0\r\nlistener0:name=tcp,bind=*,bind=-::*,port=6379\r\n\r\n# Clients\r\nconnected_clients:1\r\ncluster_connections:0\r\nmaxclients:10000\r\nclient_recent_max_input_buffer:0\r\nclient_recent_max_output_buffer:0\r\nblocked_clients:0\r\ntracking_clients:0\r\npubsub_clients:0\r\nwatching_clients:0\r\nclients_in_timeout_table:0\r\nactive_clients:3\r\ntotal_watched_keys:0\r\ntotal_blocking_keys:0\r\ntotal_blocking_keys_on_nokey:0\r\n\r\n# Memory\r\nused_memory:1780480\r\nused_memory_human:1.70M\r\nused_memory_rss:29097984\r\nused_memory_rss_human:27.75M\r\nused_memory_peak:1911864\r\nused_memory_peak_human:1.82M\r\nused_memory_peak_time:1791550822\r\nused_memory_peak_perc:93.13%\r\nused_memory_overhead:1436016\r\nused_memory_startup:1368240\r\nused_memory_dataset:344464\r\nused_memory_dataset_perc:83.56%\r\nallocator_allocated:22601120\r\nallocator_active:27852800\r\nallocator_resident:31457280\r\nallocator_muzzy:0\r\ntotal_system_memory:16745033728\r\ntotal_system_memory_human:15.60G\r\nused_memory_lua:32768\r\nused_memory_vm_eval:32768\r\nused_memory_lua_human:32.00K\r\nused_memory_scripts_eval:0\r\nnumber_of_cached_scripts:0\r\nnumber_of_functions:0\r\nnumber_of_libraries:0\r\nused_memory_vm_functions:34816\r\nused_memory_vm_total:67584\r\nused_memory_vm_total_human:66.00K\r\nused_memory_functions:192\r\nused_memory_scripts:192\r\nused_memory_scripts_human:192B\r\nmaxmemory:0\r\nmaxmemory_human:0B\r\nmaxmemory_policy:noeviction\r\nallocator_frag_ratio:1.27\r\nallocator_frag_bytes:3423776\r\nallocator_rss_ratio:1.13\r\nallocator_rss_bytes:3604480\r\nrss_overhead_ratio:0.93\r\nrss_overhead_bytes:-2359296\r\nmem_fragmentation_ratio:20.58\r\nmem_fragmentation_bytes:27684248\r\nmem_not_counted_for_evict:0\r\nmem_replication_backlog:0\r\nmem_total_replication_buffers:0\r\nmem_replica_full_sync_buffer:0\r\nmem_clients_slaves:0\r\nmem_clients_normal:0\r\nmem_clients_normal_shared:0\r\nmem_clients_normal_unshared:0\r\nmem_cluster_slot_migration_output_buffer:0\r\nmem_cluster_slot_migration_input_buffer:0\r\nmem_cluster_slot_migration_input_buffer_peak:0\r\nmem_cluster_links:0\r\nmem_aof_buffer:0\r\nmem_allocator:jemalloc-5.3.0\r\nmem_overhead_db_hashtable_rehashing:0\r\nactive_defrag_running:0\r\nlazyfree_pending_objects:0\r\nlazyfreed_objects:0\r\n\r\n# Persistence\r\nloading:0\r\nasync_loading:0\r\ncurrent_cow_peak:0\r\ncurrent_cow_size:0\r\ncurrent_cow_size_age:0\r\ncurrent_fork_perc:0.00\r\ncurrent_save_keys_processed:0\r\ncurrent_save_keys_total:0\r\nrdb_changes_since_last_save:0\r\nrdb_bgsave_in_progress:0\r\nrdb_last_save_time:1791550822\r\nrdb_last_bgsave_status:ok\r\nrdb_last_bgsave_time_sec:-1\r\nrdb_current_bgsave_time_sec:-1\r\nrdb_saves:0\r\nrdb_saves_consecutive_failures:0\r\nrdb_last_cow_size:0\r\nrdb_last_load_keys_expired:0\r\nrdb_last_load_keys_loaded:0\r\naof_enabled:0\r\naof_rewrite_in_progress:0\r\naof_rewrite_scheduled:0\r\naof_last_rewrite_time_sec:-1\r\naof_current_rewrite_time_sec:-1\r\naof_last_bgrewrite_status:ok\r\naof_rewrites:0\r\naof_rewrites_consecutive_failures:0\r\naof_last_write_status:ok\r\naof_last_cow_size:0\r\nmodule_fork_in_progress:0\r\nmodule_fork_last_cow_size:0\r\n\r\n# Threads\r\nio_thread_0:clients=1,reads=42,writes=46\r\n\r\n# Stats\r\ntotal_connections_received:3\r\ntotal_commands_processed:36\r\ninstantaneous_ops_per_sec:0\r\ntotal_net_input_bytes:1010\r\ntotal_net_output_bytes:634314\r\ntotal_net_repl_input_bytes:0\r\ntotal_net_repl_output_bytes:0\r\ninstantaneous_input_kbps:0.01\r\ninstantaneous_output_kbps:0.00\r\ninstantaneous_input_repl_kbps:0.00\r\ninstantaneous_output_repl_kbps:0.00\r\nrejected_connections:0\r\nsync_full:0\r\nsync_partial_ok:0\r\nsync_partial_err:0\r\nexpired_subkeys:0\r\nexpired_subkeys_active:0\r\nexpired_keys:0\r\nexpired_keys_active:0\r\nexpired_stale_perc:0.00\r\nexpired_time_cap_reached_count:0\r\nexpire_cycle_cpu_milliseconds:0\r\nevicted_keys:0\r\nevicted_clients:0\r\nevicted_scripts:0\r\ntotal_eviction_exceeded_time:0\r\ncurrent_eviction_exceeded_time:0\r\nkeyspace_hits:0\r\nkeyspace_misses:0\r\npubsub_channels:0\r\npubsub_patterns:0\r\npubsubshard_channels:0\r\nlatest_fork_usec:0\r\ntotal_forks:0\r\nmigrate_cached_sockets:0\r\nslave_expires_tracked_keys:0\r\nactive_defrag_hits:0\r\nactive_defrag_misses:0\r\nactive_defrag_key_hits:0\r\nactive_defrag_key_misses:0\r\ntotal_active_defrag_time:0\r\ncurrent_active_defrag_time:0\r\ntracking_total_keys:0\r\ntracking_total_items:0\r\ntracking_total_prefixes:0\r\nunexpected_error_replies:0\r\ntotal_error_replies:11\r\ndump_payload_sanitizations:0\r\ntotal_reads_processed:42\r\ntotal_writes_processed:46\r\nio_threaded_reads_processed:0\r\nio_threaded_writes_processed:0\r\nio_threaded_total_prefetch_batches:0\r\nio_threaded_total_prefetch_entries:0\r\nclient_query_buffer_limit_disconnections:0\r\nclient_output_buffer_limit_disconnections:0\r\nreply_buffer_shrinks:0\r\nreply_buffer_expands:0\r\neventloop_cycles:53\r\neventloop_duration_sum:3139\r\neventloop_duration_cmd_sum:1859\r\ninstantaneous_eventloop_cycles_per_sec:2\r\ninstantaneous_eventloop_duration_usec:0\r\neventloop_cycles_with_clients_processing:39\r\ntotal_client_processing_events:40\r\navg_pipeline_length_sum:40\r\navg_pipeline_length_cnt:40\r\navg_pipeline_length:1.00\r\nslowlog_commands_count:0\r\nslowlog_commands_time_ms_max:0.00\r\nslowlog_commands_time_ms_sum:0.00\r\nacl_access_denied_auth:0\r\nacl_access_denied_cmd:0\r\nacl_access_denied_key:0\r\nacl_access_denied_channel:0\r\nacl_access_denied_tls_cert:0\r\n\r\n# Replication\r\nrole:master\r\nconnected_slaves:0\r\nmaster_failover_state:no-failover\r\nmaster_replid:b3ac4e547f8fdc7fca0a4466567f36c2577ad804\r\nmaster_replid2:0000000000000000000000000000000000000000\r\nmaster_repl_offset:0\r\nsecond_repl_offset:-1\r\nrepl_backlog_active:0\r\nrepl_backlog_size:1048576\r\nrepl_backlog_first_byte_offset:0\r\nrepl_backlog_histlen:0\r\n\r\n# CPU\r\nused_cpu_sys:0.012303\r\nused_cpu_user:0.014774\r\nused_cpu_sys_children:0.003768\r\nused_cpu_user_children:0.005206\r\nused_cpu_sys_main_thread:0.009199\r\nused_cpu_user_main_thread:0.012409\r\n\r\n# Hotkeys\r\n\r\n# Modules\r\nmodule:name=search,ver=80800,api=1,filters=0,usedby=[],using=[ReJSON],options=[handle-io-errors]\r\nmodule:name=timeseries,ver=80800,api=1,filters=0,usedby=[],using=[],options=[handle-io-errors]\r\nmodule:name=bf,ver=80800,api=1,filters=0,usedby=[],using=[],options=[handle-io-errors]\r\nmodule:name=vectorset,ver=1,api=1,filters=0,usedby=[],using=[],options=[handle-io-errors|handle-repl-async-load]\r\nmodule:name=ReJSON,ver=80800,api=1,filters=0,usedby=[search],using=[],options=[handle-io-errors]\r\n\r\n# Commandstats\r\ncmdstat_auth:calls=2,usec=2,usec_per_call=1.00,rejected_calls=0,failed_calls=1\r\ncmdstat_ping:calls=3,usec=4,usec_per_call=1.33,rejected_calls=0,failed_calls=0\r\ncmdstat_command:calls=1,usec=610,usec_per_call=610.00,rejected_calls=0,failed_calls=0\r\ncmdstat_command|count:calls=1,usec=9,usec_per_call=9.00,rejected_calls=0,failed_calls=0\r\ncmdstat_command|info:calls=2,usec=6,usec_per_call=3.00,rejected_calls=0,failed_calls=0\r\ncmdstat_command|docs:calls=2,usec=765,usec_per_call=382.50,rejected_calls=0,failed_calls=0\r\ncmdstat_hello:calls=4,usec=8,usec_per_call=2.00,rejected_calls=0,failed_calls=1\r\ncmdstat_get:calls=0,usec=0,usec_per_call=0.00,rejected_calls=1,failed_calls=0\r\ncmdstat_info:calls=12,usec=365,usec_per_call=30.42,rejected_calls=0,failed_calls=0\r\ncmdstat_client|setname:calls=1,usec=1,usec_per_call=1.00,rejected_calls=0,failed_calls=0\r\ncmdstat_client|setinfo:calls=1,usec=1,usec_per_call=1.00,rejected_calls=0,failed_calls=0\r\ncmdstat_client|id:calls=1,usec=1,usec_per_call=1.00,rejected_calls=0,failed_calls=0\r\ncmdstat_client|list:calls=2,usec=13,usec_per_call=6.50,rejected_calls=0,failed_calls=0\r\ncmdstat_client|info:calls=1,usec=6,usec_per_call=6.00,rejected_calls=0,failed_calls=0\r\ncmdstat_client|getname:calls=1,usec=0,usec_per_call=0.00,rejected_calls=0,failed_calls=0\r\ncmdstat_module|list:calls=1,usec=2,usec_per_call=2.00,rejected_calls=0,failed_calls=0\r\ncmdstat_config|get:calls=1,usec=96,usec_per_call=96.00,rejected_calls=0,failed_calls=0\r\ncmdstat_echo:calls=0,usec=0,usec_per_call=0.00,rejected_calls=1,failed_calls=0\r\n\r\n# Errorstats\r\nerrorstat_ERR:count=10\r\nerrorstat_NOPROTO:count=1\r\n\r\n# Latencystats\r\nlatency_percentiles_usec_auth:p50=1.003,p99=1.003,p99.9=1.003\r\nlatency_percentiles_usec_ping:p50=1.003,p99=2.007,p99.9=2.007\r\nlatency_percentiles_usec_command:p50=610.303,p99=610.303,p99.9=610.303\r\nlatency_percentiles_usec_command|count:p50=9.023,p99=9.023,p99.9=9.023\r\nlatency_percentiles_usec_command|info:p50=1.003,p99=5.023,p99.9=5.023\r\nlatency_percentiles_usec_command|docs:p50=3.007,p99=765.951,p99.9=765.951\r\nlatency_percentiles_usec_hello:p50=2.007,p99=3.007,p99.9=3.007\r\nlatency_percentiles_usec_info:p50=5.023,p99=104.447,p99.9=104.447\r\nlatency_percentiles_usec_client|setname:p50=1.003,p99=1.003,p99.9=1.003\r\nlatency_percentiles_usec_client|setinfo:p50=1.003,p99=1.003,p99.9=1.003\r\nlatency_percentiles_usec_client|id:p50=1.003,p99=1.003,p99.9=1.003\r\nlatency_percentiles_usec_client|list:p50=4.015,p99=9.023,p99.9=9.023\r\nlatency_percentiles_usec_client|info:p50=6.015,p99=6.015,p99.9=6.015\r\nlatency_percentiles_usec_client|getname:p50=0.001,p99=0.001,p99.9=0.001\r\nlatency_percentiles_usec_module|list:p50=2.007,p99=2.007,p99.9=2.007\r\nlatency_percentiles_usec_config|get:p50=96.255,p99=96.255,p99.9=96.255\r\n\r\n# Cluster\r\ncluster_enabled:0\r\n\r\n# Keyspace\r\n\r\n# Keysizes\r\n\r\n# search_version\r\nsearch_version:8.8.0\r\nsearch_redis_version:8.8.0 - oss\r\n\r\n# search_indexes\r\nsearch_number_of_indexes:0\r\nsearch_number_of_active_indexes:0\r\nsearch_number_of_active_indexes_running_queries:0\r\nsearch_number_of_active_indexes_indexing:0\r\nsearch_total_active_write_threads:0\r\nsearch_total_indexing_time:0\r\nsearch_total_num_docs_in_indexes:0\r\n\r\n# search_runtime_configurations\r\nsearch_extension_load:\r\nsearch_friso_ini:\r\nsearch_default_scorer:BM25STD\r\nsearch_enableGC:ON\r\nsearch_minimal_term_prefix:2\r\nsearch_minimal_stem_length:4\r\nsearch_maximal_prefix_expansions:200\r\nsearch_query_timeout_ms:500\r\nsearch_timeout_policy:return\r\nsearch_oom_policy:return\r\nsearch_cursor_read_size:1000\r\nsearch_cursor_max_idle_time:300000\r\nsearch_max_doc_table_size:1000000\r\nsearch_max_search_results:1000000\r\nsearch_max_aggregate_results:2147483648\r\nsearch_gc_scan_size:100\r\nsearch_min_phonetic_term_length:3\r\nsearch_bm25std_tanh_factor:4\r\nsearch_info_on_zero_indexes:OFF\r\n\r\n"
+  },
+  {
+    "name": "info_multi",
+    "reply": "$969\r\n# Server\r\nredis_version:8.8.0\r\nredis_git_sha1:00000000\r\nredis_git_dirty:1\r\nredis_build_id:25cf6baa3b28e0dc\r\nredis_mode:standalone\r\nos:Linux 7.0.14-linuxkit aarch64\r\narch_bits:64\r\nmonotonic_clock:ARM CNTVCT @ 24 ticks/us\r\nmultiplexing_api:epoll\r\natomicvar_api:c11-builtin\r\ngcc_version:14.2.0\r\nprocess_id:1\r\nprocess_supervised:no\r\nrun_id:caa41fa0ee9ed6d20b28aa956e0c462bf86fc24e\r\ntcp_port:6379\r\nserver_time_usec:1791550822254339\r\nuptime_in_seconds:0\r\nuptime_in_days:0\r\nhz:10\r\nconfigured_hz:10\r\nlru_clock:13165926\r\nexecutable:/data/redis-server\r\nconfig_file:\r\nio_threads_active:0\r\nlistener0:name=tcp,bind=*,bind=-::*,port=6379\r\n\r\n# Clients\r\nconnected_clients:1\r\ncluster_connections:0\r\nmaxclients:10000\r\nclient_recent_max_input_buffer:0\r\nclient_recent_max_output_buffer:0\r\nblocked_clients:0\r\ntracking_clients:0\r\npubsub_clients:0\r\nwatching_clients:0\r\nclients_in_timeout_table:0\r\nactive_clients:3\r\ntotal_watched_keys:0\r\ntotal_blocking_keys:0\r\ntotal_blocking_keys_on_nokey:0\r\n\r\n"
+  },
+  {
+    "name": "info_keyspace_empty",
+    "reply": "$12\r\n# Keyspace\r\n\r\n"
+  },
+  {
+    "name": "info_unknown_section",
+    "reply": "$0\r\n\r\n"
+  },
+  {
+    "name": "config_get_dir",
+    "reply": "*2\r\n$3\r\ndir\r\n$5\r\n/data\r\n"
+  },
+  {
+    "name": "config_get_protected",
+    "reply": "*2\r\n$24\r\nenable-protected-configs\r\n$2\r\nno\r\n"
+  },
+  {
+    "name": "config_get_module_cmd",
+    "reply": "*2\r\n$21\r\nenable-module-command\r\n$2\r\nno\r\n"
+  },
+  {
+    "name": "config_get_multi",
+    "reply": "*4\r\n$9\r\ndatabases\r\n$2\r\n16\r\n$4\r\nport\r\n$4\r\n6379\r\n"
+  },
+  {
+    "name": "config_set_unknown",
+    "reply": "-ERR Unknown option or number of arguments for CONFIG SET - 'nosuchparam'\r\n"
+  },
+  {
+    "name": "config_set_arity",
+    "reply": "-ERR wrong number of arguments for 'config|set' command\r\n"
+  },
+  {
+    "name": "config_set_dir_missing",
+    "reply": "-ERR CONFIG SET failed (possibly related to argument 'dir') - can't set protected config\r\n"
+  },
+  {
+    "name": "config_set_dir",
+    "reply": "-ERR CONFIG SET failed (possibly related to argument 'dir') - can't set protected config\r\n"
+  },
+  {
+    "name": "config_set_dbfilename",
+    "reply": "-ERR CONFIG SET failed (possibly related to argument 'dbfilename') - can't set protected config\r\n"
+  },
+  {
+    "name": "config_set_dbfilename_path",
+    "reply": "-ERR CONFIG SET failed (possibly related to argument 'dbfilename') - can't set protected config\r\n"
+  },
+  {
+    "name": "set_basic",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "set_nx_existing",
+    "reply": "$-1\r\n"
+  },
+  {
+    "name": "set_xx_missing",
+    "reply": "$-1\r\n"
+  },
+  {
+    "name": "set_get",
+    "reply": "$1\r\nv\r\n"
+  },
+  {
+    "name": "set_ex",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "set_bad_expire",
+    "reply": "-ERR invalid expire time in 'set' command\r\n"
+  },
+  {
+    "name": "set_syntax",
+    "reply": "-ERR syntax error\r\n"
+  },
+  {
+    "name": "ttl_ex",
+    "reply": ":100\r\n"
+  },
+  {
+    "name": "ttl_persistent",
+    "reply": ":-1\r\n"
+  },
+  {
+    "name": "type_string",
+    "reply": "+string\r\n"
+  },
+  {
+    "name": "type_none",
+    "reply": "+none\r\n"
+  },
+  {
+    "name": "expire",
+    "reply": ":1\r\n"
+  },
+  {
+    "name": "scan",
+    "reply": "*2\r\n$1\r\n0\r\n*2\r\n$2\r\nk4\r\n$1\r\nk\r\n"
+  },
+  {
+    "name": "dbsize",
+    "reply": ":2\r\n"
+  },
+  {
+    "name": "info_keyspace",
+    "reply": "$56\r\n# Keyspace\r\ndb0:keys=2,expires=2,avg_ttl=0,subexpiry=0\r\n\r\n"
+  },
+  {
+    "name": "info_keysizes",
+    "reply": "$47\r\n# Keysizes\r\ndb0_distrib_strings_sizes:1=1,2=1\r\n\r\n"
+  },
+  {
+    "name": "info_errorstats",
+    "reply": "$65\r\n# Errorstats\r\nerrorstat_ERR:count=18\r\nerrorstat_NOPROTO:count=1\r\n\r\n"
+  },
+  {
+    "name": "info_replication",
+    "reply": "$349\r\n# Replication\r\nrole:master\r\nconnected_slaves:0\r\nmaster_failover_state:no-failover\r\nmaster_replid:b3ac4e547f8fdc7fca0a4466567f36c2577ad804\r\nmaster_replid2:0000000000000000000000000000000000000000\r\nmaster_repl_offset:0\r\nsecond_repl_offset:-1\r\nrepl_backlog_active:0\r\nrepl_backlog_size:1048576\r\nrepl_backlog_first_byte_offset:0\r\nrepl_backlog_histlen:0\r\n\r\n"
+  },
+  {
+    "name": "select_bad",
+    "reply": "-ERR DB index is out of range\r\n"
+  },
+  {
+    "name": "save",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "module_list",
+    "reply": "*5\r\n*8\r\n$4\r\nname\r\n$6\r\nsearch\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$43\r\n/usr/local/lib/redis/modules//redisearch.so\r\n$4\r\nargs\r\n*0\r\n*8\r\n$4\r\nname\r\n$10\r\ntimeseries\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$48\r\n/usr/local/lib/redis/modules//redistimeseries.so\r\n$4\r\nargs\r\n*0\r\n*8\r\n$4\r\nname\r\n$2\r\nbf\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$43\r\n/usr/local/lib/redis/modules//redisbloom.so\r\n$4\r\nargs\r\n*0\r\n*8\r\n$4\r\nname\r\n$9\r\nvectorset\r\n$3\r\nver\r\n:1\r\n$4\r\npath\r\n$0\r\n\r\n$4\r\nargs\r\n*0\r\n*8\r\n$4\r\nname\r\n$6\r\nReJSON\r\n$3\r\nver\r\n:80800\r\n$4\r\npath\r\n$39\r\n/usr/local/lib/redis/modules//rejson.so\r\n$4\r\nargs\r\n*0\r\n"
+  },
+  {
+    "name": "module_load_missing",
+    "reply": "-ERR MODULE command not allowed. If the enable-module-command option is set to \"local\", you can run it from a local connection, otherwise you need to set this option in the configuration file, and then restart the server.\r\n"
+  },
+  {
+    "name": "eval_return_int",
+    "reply": ":1\r\n"
+  },
+  {
+    "name": "eval_return_str",
+    "reply": "$1\r\nx\r\n"
+  },
+  {
+    "name": "eval_arity",
+    "reply": "-ERR wrong number of arguments for 'eval' command\r\n"
+  },
+  {
+    "name": "eval_numkeys_bad",
+    "reply": "-ERR Number of keys can't be greater than number of args\r\n"
+  },
+  {
+    "name": "script_load",
+    "reply": "$40\r\n573cd020e2fc941d149285df8b681959190edd09\r\n"
+  },
+  {
+    "name": "evalsha_ok",
+    "reply": "$1\r\nx\r\n"
+  },
+  {
+    "name": "evalsha_missing",
+    "reply": "-NOSCRIPT No matching script. Please use EVAL.\r\n"
+  },
+  {
+    "name": "script_exists",
+    "reply": "*2\r\n:1\r\n:0\r\n"
+  },
+  {
+    "name": "function_list",
+    "reply": "*0\r\n"
+  },
+  {
+    "name": "role",
+    "reply": "*3\r\n$6\r\nmaster\r\n:0\r\n*0\r\n"
+  },
+  {
+    "name": "replicaof_no_one",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "time",
+    "reply": "*2\r\n$10\r\n1791550822\r\n$6\r\n267595\r\n"
+  },
+  {
+    "name": "quit",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "proto_bad_multibulk",
+    "reply": "-ERR Protocol error: invalid multibulk length\r\n",
+    "closed": true
+  },
+  {
+    "name": "proto_expected_dollar",
+    "reply": "-ERR Protocol error: expected '$', got 'f'\r\n",
+    "closed": true
+  },
+  {
+    "name": "proto_bad_bulk_len",
+    "reply": "-ERR Protocol error: invalid bulk length\r\n",
+    "closed": true
+  },
+  {
+    "name": "proto_unbalanced_quotes",
+    "reply": "-ERR Protocol error: unbalanced quotes in request\r\n",
+    "closed": true
+  },
+  {
+    "name": "http_post",
+    "closed": true
+  },
+  {
+    "name": "http_host_line",
+    "closed": true
+  },
+  {
+    "name": "psync",
+    "reply_base64": "K0ZVTExSRVNZTkMgYjE2YjZkMmQ3OTcyYTNiYTU2MWI1Y2ViOTI2YWY2ZDExYzc4NDdlMiAwDQokMjA2DQpSRURJUzAwMTT6CXJlZGlzLXZlcgU4LjguMPoKcmVkaXMtYml0c8BA+gVjdGltZcJm5chq+gh1c2VkLW1lbcKA9iEA+g5yZXBsLXN0cmVhbS1kYsAA+gdyZXBsLWlkKGIxNmI2ZDJkNzk3MmEzYmE1NjFiNWNlYjkyNmFmNmQxMWM3ODQ3ZTL6C3JlcGwtb2Zmc2V0wAD6CGFvZi1iYXNlwAD+APsCAvwSnsEgoQEAAAACazQBdvyzWc8goQEAAAABawJ2M/9zQKI+NXCgLw=="
+  }
+]

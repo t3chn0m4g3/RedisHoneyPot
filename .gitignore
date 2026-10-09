@@ -1,0 +1,3 @@
+/RedisHoneyPot
+/logs/*
+!/logs/.gitkeep
