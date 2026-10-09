@@ -1,0 +1,1 @@
+id=3 addr=172.17.0.1:61226 laddr=172.17.0.3:6379 fd=10 name= age=0 idle=0 flags=N capa= db=0 sub=0 psub=0 ssub=0 multi=-1 watch=0 qbuf=0 qbuf-free=0 argv-mem=10 multi-mem=0 rbs=16384 rbp=16384 obl=0 oll=0 omem=0 tot-mem=17050 events=r cmd=client|list user=default redir=-1 resp=2 lib-name= lib-ver= tot-net-in=196 tot-net-out=333241 tot-cmds=7
