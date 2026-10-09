@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"RedisHoneyPot/internal/honeypot"
@@ -27,16 +28,19 @@ func main() {
 	flag.StringVar(&options.Address, "addr", options.Address, "listen address")
 	flag.StringVar(&options.Network, "proto", options.Network, "listen protocol")
 	flag.IntVar(&legacyLoops, "num", 1, "deprecated compatibility flag; ignored")
-	flag.StringVar(&profileName, "profile", honeypot.DefaultProfileName, "Redis persona: legacy6 or current8")
+	flag.StringVar(&profileName, "profile", honeypot.DefaultProfileName, "server persona: "+strings.Join(honeypot.ProfileNames(), ", "))
 	flag.DurationVar(&options.IdleTimeout, "idle-timeout", options.IdleTimeout, "connection idle timeout")
 	flag.IntVar(&options.MaxBulkBytes, "max-bulk-bytes", options.MaxBulkBytes, "maximum RESP bulk string size")
+	flag.IntVar(&options.MaxCommandBytes, "max-command-bytes", options.MaxCommandBytes, "maximum summed bulk payload of one command")
+	flag.IntVar(&options.MaxClients, "max-clients", options.MaxClients, "maximum concurrent client connections")
+	flag.IntVar(&options.MaxLoggedPayloadBytes, "max-logged-payload-bytes", options.MaxLoggedPayloadBytes, "maximum bytes of SET values, scripts and CONFIG values in logs")
 	flag.StringVar(&logFilePath, "log-file", "", "optional JSONL honeypot event log file")
 	flag.Parse()
 
 	appLogger := honeypot.NewJSONLogger(os.Stdout)
 	profile, ok := honeypot.LookupRedisProfile(profileName)
 	if !ok {
-		_, _ = fmt.Fprintf(os.Stderr, "unknown profile %q; expected legacy6 or current8\n", profileName)
+		_, _ = fmt.Fprintf(os.Stderr, "unknown profile %q; expected one of %s\n", profileName, strings.Join(honeypot.ProfileNames(), ", "))
 		os.Exit(2)
 	}
 	options.Profile = profile
@@ -84,12 +88,17 @@ func main() {
 		"profile", options.Profile.Name,
 		"idle_timeout", options.IdleTimeout.String(),
 		"max_bulk_bytes", options.MaxBulkBytes,
+		"max_command_bytes", options.MaxCommandBytes,
+		"max_clients", options.MaxClients,
+		"max_logged_payload_bytes", options.MaxLoggedPayloadBytes,
 	}
 	if logFilePath != "" {
 		startAttrs = append(startAttrs, "log_file", logFilePath)
 	}
 	appLogger.Info("start", startAttrs...)
 
+	// Start returns only after every connection handler has written its close
+	// event, so the deferred log file close cannot drop session events.
 	if err := server.Start(); err != nil && !errors.Is(err, net.ErrClosed) {
 		appLogger.Error("server_failed", "event", "server_failed", "error", err)
 		os.Exit(1)

@@ -1,0 +1,350 @@
+[
+  {
+    "name": "ping",
+    "reply": "+PONG\r\n"
+  },
+  {
+    "name": "ping_arg",
+    "reply": "$5\r\nhello\r\n"
+  },
+  {
+    "name": "echo_arity",
+    "reply": "-ERR wrong number of arguments for 'echo' command\r\n"
+  },
+  {
+    "name": "get_arity",
+    "reply": "-ERR wrong number of arguments for 'get' command\r\n"
+  },
+  {
+    "name": "unknown_noargs",
+    "reply": "-ERR unknown command `FOOBAR`, with args beginning with: \r\n"
+  },
+  {
+    "name": "unknown_args",
+    "reply": "-ERR unknown command `FOOBAR`, with args beginning with: `a`, `b c`, \r\n"
+  },
+  {
+    "name": "unknown_inline",
+    "reply": "-ERR unknown command `FOOBAR`, with args beginning with: `a`, `b`, \r\n"
+  },
+  {
+    "name": "config_unknown_sub",
+    "reply": "-ERR Unknown subcommand or wrong number of arguments for 'FOO'. Try CONFIG HELP.\r\n"
+  },
+  {
+    "name": "client_unknown_sub",
+    "reply": "-ERR Unknown subcommand or wrong number of arguments for 'FOO'. Try CLIENT HELP.\r\n"
+  },
+  {
+    "name": "command_unknown_sub",
+    "reply": "-ERR Unknown subcommand or wrong number of arguments for 'FOO'. Try COMMAND HELP.\r\n"
+  },
+  {
+    "name": "module_unknown_sub",
+    "reply": "-ERR Unknown subcommand or wrong number of arguments for 'FOO'. Try MODULE HELP.\r\n"
+  },
+  {
+    "name": "auth_nopass",
+    "reply": "-ERR AUTH \u003cpassword\u003e called without any password configured for the default user. Are you sure your configuration is correct?\r\n"
+  },
+  {
+    "name": "auth_user",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "hello_noargs",
+    "reply": "*14\r\n$6\r\nserver\r\n$5\r\nredis\r\n$7\r\nversion\r\n$6\r\n6.2.18\r\n$5\r\nproto\r\n:2\r\n$2\r\nid\r\n:5\r\n$4\r\nmode\r\n$10\r\nstandalone\r\n$4\r\nrole\r\n$6\r\nmaster\r\n$7\r\nmodules\r\n*0\r\n"
+  },
+  {
+    "name": "hello_3",
+    "reply": "%7\r\n$6\r\nserver\r\n$5\r\nredis\r\n$7\r\nversion\r\n$6\r\n6.2.18\r\n$5\r\nproto\r\n:3\r\n$2\r\nid\r\n:5\r\n$4\r\nmode\r\n$10\r\nstandalone\r\n$4\r\nrole\r\n$6\r\nmaster\r\n$7\r\nmodules\r\n*0\r\n"
+  },
+  {
+    "name": "hello_back_2",
+    "reply": "*14\r\n$6\r\nserver\r\n$5\r\nredis\r\n$7\r\nversion\r\n$6\r\n6.2.18\r\n$5\r\nproto\r\n:2\r\n$2\r\nid\r\n:5\r\n$4\r\nmode\r\n$10\r\nstandalone\r\n$4\r\nrole\r\n$6\r\nmaster\r\n$7\r\nmodules\r\n*0\r\n"
+  },
+  {
+    "name": "hello_bad",
+    "reply": "-NOPROTO unsupported protocol version\r\n"
+  },
+  {
+    "name": "client_setname",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "client_getname",
+    "reply": "$5\r\nprobe\r\n"
+  },
+  {
+    "name": "client_setinfo",
+    "reply": "-ERR Unknown subcommand or wrong number of arguments for 'SETINFO'. Try CLIENT HELP.\r\n"
+  },
+  {
+    "name": "client_id",
+    "reply": ":5\r\n"
+  },
+  {
+    "name": "client_info",
+    "reply": "$224\r\nid=5 addr=172.17.0.1:60986 laddr=172.17.0.3:6379 fd=8 name=probe age=0 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=40928 argv-mem=10 obl=0 oll=0 omem=0 tot-mem=61466 events=r cmd=client user=default redir=-1\n\r\n"
+  },
+  {
+    "name": "client_list",
+    "reply": "$224\r\nid=5 addr=172.17.0.1:60986 laddr=172.17.0.3:6379 fd=8 name=probe age=0 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=40928 argv-mem=10 obl=0 oll=0 omem=0 tot-mem=61466 events=r cmd=client user=default redir=-1\n\r\n"
+  },
+  {
+    "name": "command_count",
+    "reply": ":224\r\n"
+  },
+  {
+    "name": "command_info_get",
+    "reply": "*1\r\n*7\r\n$3\r\nget\r\n:2\r\n*2\r\n+readonly\r\n+fast\r\n:1\r\n:1\r\n:1\r\n*3\r\n+@read\r\n+@string\r\n+@fast\r\n"
+  },
+  {
+    "name": "command_info_unknown",
+    "reply": "*1\r\n$-1\r\n"
+  },
+  {
+    "name": "command_docs_get",
+    "reply": "-ERR Unknown subcommand or wrong number of arguments for 'DOCS'. Try COMMAND HELP.\r\n"
+  },
+  {
+    "name": "info_default",
+    "reply": "$4143\r\n# Server\r\nredis_version:6.2.18\r\nredis_git_sha1:00000000\r\nredis_git_dirty:0\r\nredis_build_id:bcb72a74eaf252cb\r\nredis_mode:standalone\r\nos:Linux 7.0.14-linuxkit aarch64\r\narch_bits:64\r\nmonotonic_clock:POSIX clock_gettime\r\nmultiplexing_api:epoll\r\natomicvar_api:c11-builtin\r\ngcc_version:12.2.0\r\nprocess_id:1\r\nprocess_supervised:no\r\nrun_id:e33618c1c30430dc99d5f1801bb5b6d4221e029d\r\ntcp_port:6379\r\nserver_time_usec:1791550821721014\r\nuptime_in_seconds:0\r\nuptime_in_days:0\r\nhz:10\r\nconfigured_hz:10\r\nlru_clock:13165925\r\nexecutable:/data/redis-server\r\nconfig_file:\r\nio_threads_active:0\r\n\r\n# Clients\r\nconnected_clients:1\r\ncluster_connections:0\r\nmaxclients:10000\r\nclient_recent_max_input_buffer:0\r\nclient_recent_max_output_buffer:0\r\nblocked_clients:0\r\ntracking_clients:0\r\nclients_in_timeout_table:0\r\n\r\n# Memory\r\nused_memory:908576\r\nused_memory_human:887.28K\r\nused_memory_rss:14200832\r\nused_memory_rss_human:13.54M\r\nused_memory_peak:966536\r\nused_memory_peak_human:943.88K\r\nused_memory_peak_perc:94.00%\r\nused_memory_overhead:844664\r\nused_memory_startup:844664\r\nused_memory_dataset:63912\r\nused_memory_dataset_perc:100.00%\r\nallocator_allocated:4330064\r\nallocator_active:9437184\r\nallocator_resident:11403264\r\ntotal_system_memory:16745033728\r\ntotal_system_memory_human:15.60G\r\nused_memory_lua:30720\r\nused_memory_lua_human:30.00K\r\nused_memory_scripts:0\r\nused_memory_scripts_human:0B\r\nnumber_of_cached_scripts:0\r\nmaxmemory:0\r\nmaxmemory_human:0B\r\nmaxmemory_policy:noeviction\r\nallocator_frag_ratio:2.18\r\nallocator_frag_bytes:5107120\r\nallocator_rss_ratio:1.21\r\nallocator_rss_bytes:1966080\r\nrss_overhead_ratio:1.25\r\nrss_overhead_bytes:2797568\r\nmem_fragmentation_ratio:16.81\r\nmem_fragmentation_bytes:13356152\r\nmem_not_counted_for_evict:0\r\nmem_replication_backlog:0\r\nmem_clients_slaves:0\r\nmem_clients_normal:0\r\nmem_aof_buffer:0\r\nmem_allocator:jemalloc-5.1.0\r\nactive_defrag_running:0\r\nlazyfree_pending_objects:0\r\nlazyfreed_objects:0\r\n\r\n# Persistence\r\nloading:0\r\ncurrent_cow_size:0\r\ncurrent_cow_size_age:0\r\ncurrent_fork_perc:0.00\r\ncurrent_save_keys_processed:0\r\ncurrent_save_keys_total:0\r\nrdb_changes_since_last_save:0\r\nrdb_bgsave_in_progress:0\r\nrdb_last_save_time:1791550821\r\nrdb_last_bgsave_status:ok\r\nrdb_last_bgsave_time_sec:-1\r\nrdb_current_bgsave_time_sec:-1\r\nrdb_last_cow_size:0\r\naof_enabled:0\r\naof_rewrite_in_progress:0\r\naof_rewrite_scheduled:0\r\naof_last_rewrite_time_sec:-1\r\naof_current_rewrite_time_sec:-1\r\naof_last_bgrewrite_status:ok\r\naof_last_write_status:ok\r\naof_last_cow_size:0\r\nmodule_fork_in_progress:0\r\nmodule_fork_last_cow_size:0\r\n\r\n# Stats\r\ntotal_connections_received:3\r\ntotal_commands_processed:31\r\ninstantaneous_ops_per_sec:0\r\ntotal_net_input_bytes:930\r\ntotal_net_output_bytes:41556\r\ninstantaneous_input_kbps:0.01\r\ninstantaneous_output_kbps:0.00\r\nrejected_connections:0\r\nsync_full:0\r\nsync_partial_ok:0\r\nsync_partial_err:0\r\nexpired_keys:0\r\nexpired_stale_perc:0.00\r\nexpired_time_cap_reached_count:0\r\nexpire_cycle_cpu_milliseconds:0\r\nevicted_keys:0\r\nkeyspace_hits:0\r\nkeyspace_misses:0\r\npubsub_channels:0\r\npubsub_patterns:0\r\nlatest_fork_usec:0\r\ntotal_forks:0\r\nmigrate_cached_sockets:0\r\nslave_expires_tracked_keys:0\r\nactive_defrag_hits:0\r\nactive_defrag_misses:0\r\nactive_defrag_key_hits:0\r\nactive_defrag_key_misses:0\r\ntracking_total_keys:0\r\ntracking_total_items:0\r\ntracking_total_prefixes:0\r\nunexpected_error_replies:0\r\ntotal_error_replies:14\r\ndump_payload_sanitizations:0\r\ntotal_reads_processed:39\r\ntotal_writes_processed:36\r\nio_threaded_reads_processed:0\r\nio_threaded_writes_processed:0\r\n\r\n# Replication\r\nrole:master\r\nconnected_slaves:0\r\nmaster_failover_state:no-failover\r\nmaster_replid:6cbf59cfa55ef1c5e35f2ab56a9f5ad9f9304707\r\nmaster_replid2:0000000000000000000000000000000000000000\r\nmaster_repl_offset:0\r\nsecond_repl_offset:-1\r\nrepl_backlog_active:0\r\nrepl_backlog_size:1048576\r\nrepl_backlog_first_byte_offset:0\r\nrepl_backlog_histlen:0\r\n\r\n# CPU\r\nused_cpu_sys:0.007777\r\nused_cpu_user:0.009619\r\nused_cpu_sys_children:0.000000\r\nused_cpu_user_children:0.001746\r\nused_cpu_sys_main_thread:0.006695\r\nused_cpu_user_main_thread:0.008448\r\n\r\n# Modules\r\n\r\n# Errorstats\r\nerrorstat_ERR:count=13\r\nerrorstat_NOPROTO:count=1\r\n\r\n# Cluster\r\ncluster_enabled:0\r\n\r\n# Keyspace\r\n\r\n"
+  },
+  {
+    "name": "info_server",
+    "reply": "$574\r\n# Server\r\nredis_version:6.2.18\r\nredis_git_sha1:00000000\r\nredis_git_dirty:0\r\nredis_build_id:bcb72a74eaf252cb\r\nredis_mode:standalone\r\nos:Linux 7.0.14-linuxkit aarch64\r\narch_bits:64\r\nmonotonic_clock:POSIX clock_gettime\r\nmultiplexing_api:epoll\r\natomicvar_api:c11-builtin\r\ngcc_version:12.2.0\r\nprocess_id:1\r\nprocess_supervised:no\r\nrun_id:e33618c1c30430dc99d5f1801bb5b6d4221e029d\r\ntcp_port:6379\r\nserver_time_usec:1791550821721456\r\nuptime_in_seconds:0\r\nuptime_in_days:0\r\nhz:10\r\nconfigured_hz:10\r\nlru_clock:13165925\r\nexecutable:/data/redis-server\r\nconfig_file:\r\nio_threads_active:0\r\n\r\n"
+  },
+  {
+    "name": "info_all",
+    "reply": "$4979\r\n# Server\r\nredis_version:6.2.18\r\nredis_git_sha1:00000000\r\nredis_git_dirty:0\r\nredis_build_id:bcb72a74eaf252cb\r\nredis_mode:standalone\r\nos:Linux 7.0.14-linuxkit aarch64\r\narch_bits:64\r\nmonotonic_clock:POSIX clock_gettime\r\nmultiplexing_api:epoll\r\natomicvar_api:c11-builtin\r\ngcc_version:12.2.0\r\nprocess_id:1\r\nprocess_supervised:no\r\nrun_id:e33618c1c30430dc99d5f1801bb5b6d4221e029d\r\ntcp_port:6379\r\nserver_time_usec:1791550821721830\r\nuptime_in_seconds:0\r\nuptime_in_days:0\r\nhz:10\r\nconfigured_hz:10\r\nlru_clock:13165925\r\nexecutable:/data/redis-server\r\nconfig_file:\r\nio_threads_active:0\r\n\r\n# Clients\r\nconnected_clients:1\r\ncluster_connections:0\r\nmaxclients:10000\r\nclient_recent_max_input_buffer:0\r\nclient_recent_max_output_buffer:0\r\nblocked_clients:0\r\ntracking_clients:0\r\nclients_in_timeout_table:0\r\n\r\n# Memory\r\nused_memory:908608\r\nused_memory_human:887.31K\r\nused_memory_rss:14200832\r\nused_memory_rss_human:13.54M\r\nused_memory_peak:966536\r\nused_memory_peak_human:943.88K\r\nused_memory_peak_perc:94.01%\r\nused_memory_overhead:844664\r\nused_memory_startup:844664\r\nused_memory_dataset:63944\r\nused_memory_dataset_perc:100.00%\r\nallocator_allocated:4330064\r\nallocator_active:9437184\r\nallocator_resident:11403264\r\ntotal_system_memory:16745033728\r\ntotal_system_memory_human:15.60G\r\nused_memory_lua:30720\r\nused_memory_lua_human:30.00K\r\nused_memory_scripts:0\r\nused_memory_scripts_human:0B\r\nnumber_of_cached_scripts:0\r\nmaxmemory:0\r\nmaxmemory_human:0B\r\nmaxmemory_policy:noeviction\r\nallocator_frag_ratio:2.18\r\nallocator_frag_bytes:5107120\r\nallocator_rss_ratio:1.21\r\nallocator_rss_bytes:1966080\r\nrss_overhead_ratio:1.25\r\nrss_overhead_bytes:2797568\r\nmem_fragmentation_ratio:16.81\r\nmem_fragmentation_bytes:13356152\r\nmem_not_counted_for_evict:0\r\nmem_replication_backlog:0\r\nmem_clients_slaves:0\r\nmem_clients_normal:0\r\nmem_aof_buffer:0\r\nmem_allocator:jemalloc-5.1.0\r\nactive_defrag_running:0\r\nlazyfree_pending_objects:0\r\nlazyfreed_objects:0\r\n\r\n# Persistence\r\nloading:0\r\ncurrent_cow_size:0\r\ncurrent_cow_size_age:0\r\ncurrent_fork_perc:0.00\r\ncurrent_save_keys_processed:0\r\ncurrent_save_keys_total:0\r\nrdb_changes_since_last_save:0\r\nrdb_bgsave_in_progress:0\r\nrdb_last_save_time:1791550821\r\nrdb_last_bgsave_status:ok\r\nrdb_last_bgsave_time_sec:-1\r\nrdb_current_bgsave_time_sec:-1\r\nrdb_last_cow_size:0\r\naof_enabled:0\r\naof_rewrite_in_progress:0\r\naof_rewrite_scheduled:0\r\naof_last_rewrite_time_sec:-1\r\naof_current_rewrite_time_sec:-1\r\naof_last_bgrewrite_status:ok\r\naof_last_write_status:ok\r\naof_last_cow_size:0\r\nmodule_fork_in_progress:0\r\nmodule_fork_last_cow_size:0\r\n\r\n# Stats\r\ntotal_connections_received:3\r\ntotal_commands_processed:33\r\ninstantaneous_ops_per_sec:0\r\ntotal_net_input_bytes:979\r\ntotal_net_output_bytes:46290\r\ninstantaneous_input_kbps:0.01\r\ninstantaneous_output_kbps:0.00\r\nrejected_connections:0\r\nsync_full:0\r\nsync_partial_ok:0\r\nsync_partial_err:0\r\nexpired_keys:0\r\nexpired_stale_perc:0.00\r\nexpired_time_cap_reached_count:0\r\nexpire_cycle_cpu_milliseconds:0\r\nevicted_keys:0\r\nkeyspace_hits:0\r\nkeyspace_misses:0\r\npubsub_channels:0\r\npubsub_patterns:0\r\nlatest_fork_usec:0\r\ntotal_forks:0\r\nmigrate_cached_sockets:0\r\nslave_expires_tracked_keys:0\r\nactive_defrag_hits:0\r\nactive_defrag_misses:0\r\nactive_defrag_key_hits:0\r\nactive_defrag_key_misses:0\r\ntracking_total_keys:0\r\ntracking_total_items:0\r\ntracking_total_prefixes:0\r\nunexpected_error_replies:0\r\ntotal_error_replies:14\r\ndump_payload_sanitizations:0\r\ntotal_reads_processed:41\r\ntotal_writes_processed:38\r\nio_threaded_reads_processed:0\r\nio_threaded_writes_processed:0\r\n\r\n# Replication\r\nrole:master\r\nconnected_slaves:0\r\nmaster_failover_state:no-failover\r\nmaster_replid:6cbf59cfa55ef1c5e35f2ab56a9f5ad9f9304707\r\nmaster_replid2:0000000000000000000000000000000000000000\r\nmaster_repl_offset:0\r\nsecond_repl_offset:-1\r\nrepl_backlog_active:0\r\nrepl_backlog_size:1048576\r\nrepl_backlog_first_byte_offset:0\r\nrepl_backlog_histlen:0\r\n\r\n# CPU\r\nused_cpu_sys:0.007777\r\nused_cpu_user:0.009688\r\nused_cpu_sys_children:0.000000\r\nused_cpu_user_children:0.001746\r\nused_cpu_sys_main_thread:0.006695\r\nused_cpu_user_main_thread:0.008517\r\n\r\n# Modules\r\n\r\n# Commandstats\r\ncmdstat_info:calls=5,usec=142,usec_per_call=28.40,rejected_calls=0,failed_calls=0\r\ncmdstat_hello:calls=4,usec=7,usec_per_call=1.75,rejected_calls=0,failed_calls=1\r\ncmdstat_config:calls=2,usec=34,usec_per_call=17.00,rejected_calls=0,failed_calls=1\r\ncmdstat_ping:calls=3,usec=1,usec_per_call=0.33,rejected_calls=0,failed_calls=0\r\ncmdstat_get:calls=0,usec=0,usec_per_call=0.00,rejected_calls=1,failed_calls=0\r\ncmdstat_module:calls=2,usec=2,usec_per_call=1.00,rejected_calls=0,failed_calls=1\r\ncmdstat_client:calls=8,usec=29,usec_per_call=3.62,rejected_calls=0,failed_calls=2\r\ncmdstat_echo:calls=0,usec=0,usec_per_call=0.00,rejected_calls=1,failed_calls=0\r\ncmdstat_auth:calls=2,usec=2,usec_per_call=1.00,rejected_calls=0,failed_calls=1\r\ncmdstat_command:calls=7,usec=322,usec_per_call=46.00,rejected_calls=0,failed_calls=3\r\n\r\n# Errorstats\r\nerrorstat_ERR:count=13\r\nerrorstat_NOPROTO:count=1\r\n\r\n# Cluster\r\ncluster_enabled:0\r\n\r\n# Keyspace\r\n\r\n"
+  },
+  {
+    "name": "info_everything",
+    "reply": "$4980\r\n# Server\r\nredis_version:6.2.18\r\nredis_git_sha1:00000000\r\nredis_git_dirty:0\r\nredis_build_id:bcb72a74eaf252cb\r\nredis_mode:standalone\r\nos:Linux 7.0.14-linuxkit aarch64\r\narch_bits:64\r\nmonotonic_clock:POSIX clock_gettime\r\nmultiplexing_api:epoll\r\natomicvar_api:c11-builtin\r\ngcc_version:12.2.0\r\nprocess_id:1\r\nprocess_supervised:no\r\nrun_id:e33618c1c30430dc99d5f1801bb5b6d4221e029d\r\ntcp_port:6379\r\nserver_time_usec:1791550821722248\r\nuptime_in_seconds:0\r\nuptime_in_days:0\r\nhz:10\r\nconfigured_hz:10\r\nlru_clock:13165925\r\nexecutable:/data/redis-server\r\nconfig_file:\r\nio_threads_active:0\r\n\r\n# Clients\r\nconnected_clients:1\r\ncluster_connections:0\r\nmaxclients:10000\r\nclient_recent_max_input_buffer:0\r\nclient_recent_max_output_buffer:0\r\nblocked_clients:0\r\ntracking_clients:0\r\nclients_in_timeout_table:0\r\n\r\n# Memory\r\nused_memory:908616\r\nused_memory_human:887.32K\r\nused_memory_rss:14200832\r\nused_memory_rss_human:13.54M\r\nused_memory_peak:966536\r\nused_memory_peak_human:943.88K\r\nused_memory_peak_perc:94.01%\r\nused_memory_overhead:844664\r\nused_memory_startup:844664\r\nused_memory_dataset:63952\r\nused_memory_dataset_perc:100.00%\r\nallocator_allocated:4330064\r\nallocator_active:9437184\r\nallocator_resident:11403264\r\ntotal_system_memory:16745033728\r\ntotal_system_memory_human:15.60G\r\nused_memory_lua:30720\r\nused_memory_lua_human:30.00K\r\nused_memory_scripts:0\r\nused_memory_scripts_human:0B\r\nnumber_of_cached_scripts:0\r\nmaxmemory:0\r\nmaxmemory_human:0B\r\nmaxmemory_policy:noeviction\r\nallocator_frag_ratio:2.18\r\nallocator_frag_bytes:5107120\r\nallocator_rss_ratio:1.21\r\nallocator_rss_bytes:1966080\r\nrss_overhead_ratio:1.25\r\nrss_overhead_bytes:2797568\r\nmem_fragmentation_ratio:16.81\r\nmem_fragmentation_bytes:13356152\r\nmem_not_counted_for_evict:0\r\nmem_replication_backlog:0\r\nmem_clients_slaves:0\r\nmem_clients_normal:0\r\nmem_aof_buffer:0\r\nmem_allocator:jemalloc-5.1.0\r\nactive_defrag_running:0\r\nlazyfree_pending_objects:0\r\nlazyfreed_objects:0\r\n\r\n# Persistence\r\nloading:0\r\ncurrent_cow_size:0\r\ncurrent_cow_size_age:0\r\ncurrent_fork_perc:0.00\r\ncurrent_save_keys_processed:0\r\ncurrent_save_keys_total:0\r\nrdb_changes_since_last_save:0\r\nrdb_bgsave_in_progress:0\r\nrdb_last_save_time:1791550821\r\nrdb_last_bgsave_status:ok\r\nrdb_last_bgsave_time_sec:-1\r\nrdb_current_bgsave_time_sec:-1\r\nrdb_last_cow_size:0\r\naof_enabled:0\r\naof_rewrite_in_progress:0\r\naof_rewrite_scheduled:0\r\naof_last_rewrite_time_sec:-1\r\naof_current_rewrite_time_sec:-1\r\naof_last_bgrewrite_status:ok\r\naof_last_write_status:ok\r\naof_last_cow_size:0\r\nmodule_fork_in_progress:0\r\nmodule_fork_last_cow_size:0\r\n\r\n# Stats\r\ntotal_connections_received:3\r\ntotal_commands_processed:34\r\ninstantaneous_ops_per_sec:0\r\ntotal_net_input_bytes:1010\r\ntotal_net_output_bytes:51278\r\ninstantaneous_input_kbps:0.01\r\ninstantaneous_output_kbps:0.00\r\nrejected_connections:0\r\nsync_full:0\r\nsync_partial_ok:0\r\nsync_partial_err:0\r\nexpired_keys:0\r\nexpired_stale_perc:0.00\r\nexpired_time_cap_reached_count:0\r\nexpire_cycle_cpu_milliseconds:0\r\nevicted_keys:0\r\nkeyspace_hits:0\r\nkeyspace_misses:0\r\npubsub_channels:0\r\npubsub_patterns:0\r\nlatest_fork_usec:0\r\ntotal_forks:0\r\nmigrate_cached_sockets:0\r\nslave_expires_tracked_keys:0\r\nactive_defrag_hits:0\r\nactive_defrag_misses:0\r\nactive_defrag_key_hits:0\r\nactive_defrag_key_misses:0\r\ntracking_total_keys:0\r\ntracking_total_items:0\r\ntracking_total_prefixes:0\r\nunexpected_error_replies:0\r\ntotal_error_replies:14\r\ndump_payload_sanitizations:0\r\ntotal_reads_processed:42\r\ntotal_writes_processed:39\r\nio_threaded_reads_processed:0\r\nio_threaded_writes_processed:0\r\n\r\n# Replication\r\nrole:master\r\nconnected_slaves:0\r\nmaster_failover_state:no-failover\r\nmaster_replid:6cbf59cfa55ef1c5e35f2ab56a9f5ad9f9304707\r\nmaster_replid2:0000000000000000000000000000000000000000\r\nmaster_repl_offset:0\r\nsecond_repl_offset:-1\r\nrepl_backlog_active:0\r\nrepl_backlog_size:1048576\r\nrepl_backlog_first_byte_offset:0\r\nrepl_backlog_histlen:0\r\n\r\n# CPU\r\nused_cpu_sys:0.007777\r\nused_cpu_user:0.009736\r\nused_cpu_sys_children:0.000000\r\nused_cpu_user_children:0.001746\r\nused_cpu_sys_main_thread:0.006695\r\nused_cpu_user_main_thread:0.008565\r\n\r\n# Modules\r\n\r\n# Commandstats\r\ncmdstat_info:calls=6,usec=178,usec_per_call=29.67,rejected_calls=0,failed_calls=0\r\ncmdstat_hello:calls=4,usec=7,usec_per_call=1.75,rejected_calls=0,failed_calls=1\r\ncmdstat_config:calls=2,usec=34,usec_per_call=17.00,rejected_calls=0,failed_calls=1\r\ncmdstat_ping:calls=3,usec=1,usec_per_call=0.33,rejected_calls=0,failed_calls=0\r\ncmdstat_get:calls=0,usec=0,usec_per_call=0.00,rejected_calls=1,failed_calls=0\r\ncmdstat_module:calls=2,usec=2,usec_per_call=1.00,rejected_calls=0,failed_calls=1\r\ncmdstat_client:calls=8,usec=29,usec_per_call=3.62,rejected_calls=0,failed_calls=2\r\ncmdstat_echo:calls=0,usec=0,usec_per_call=0.00,rejected_calls=1,failed_calls=0\r\ncmdstat_auth:calls=2,usec=2,usec_per_call=1.00,rejected_calls=0,failed_calls=1\r\ncmdstat_command:calls=7,usec=322,usec_per_call=46.00,rejected_calls=0,failed_calls=3\r\n\r\n# Errorstats\r\nerrorstat_ERR:count=13\r\nerrorstat_NOPROTO:count=1\r\n\r\n# Cluster\r\ncluster_enabled:0\r\n\r\n# Keyspace\r\n\r\n"
+  },
+  {
+    "name": "info_multi",
+    "reply": "-ERR syntax error\r\n"
+  },
+  {
+    "name": "info_keyspace_empty",
+    "reply": "$12\r\n# Keyspace\r\n\r\n"
+  },
+  {
+    "name": "info_unknown_section",
+    "reply": "$0\r\n\r\n"
+  },
+  {
+    "name": "config_get_dir",
+    "reply": "*2\r\n$3\r\ndir\r\n$5\r\n/data\r\n"
+  },
+  {
+    "name": "config_get_protected",
+    "reply": "*0\r\n"
+  },
+  {
+    "name": "config_get_module_cmd",
+    "reply": "*0\r\n"
+  },
+  {
+    "name": "config_get_multi",
+    "reply": "-ERR Unknown subcommand or wrong number of arguments for 'GET'. Try CONFIG HELP.\r\n"
+  },
+  {
+    "name": "config_set_unknown",
+    "reply": "-ERR Unsupported CONFIG parameter: nosuchparam\r\n"
+  },
+  {
+    "name": "config_set_arity",
+    "reply": "-ERR Unknown subcommand or wrong number of arguments for 'SET'. Try CONFIG HELP.\r\n"
+  },
+  {
+    "name": "config_set_dir_missing",
+    "reply": "-ERR Changing directory: No such file or directory\r\n"
+  },
+  {
+    "name": "config_set_dir",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "config_set_dbfilename",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "config_set_dbfilename_path",
+    "reply": "-ERR Invalid argument '../probe.rdb' for CONFIG SET 'dbfilename' - dbfilename can't be a path, just a filename\r\n"
+  },
+  {
+    "name": "set_basic",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "set_nx_existing",
+    "reply": "$-1\r\n"
+  },
+  {
+    "name": "set_xx_missing",
+    "reply": "$-1\r\n"
+  },
+  {
+    "name": "set_get",
+    "reply": "$1\r\nv\r\n"
+  },
+  {
+    "name": "set_ex",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "set_bad_expire",
+    "reply": "-ERR invalid expire time in set\r\n"
+  },
+  {
+    "name": "set_syntax",
+    "reply": "-ERR syntax error\r\n"
+  },
+  {
+    "name": "ttl_ex",
+    "reply": ":100\r\n"
+  },
+  {
+    "name": "ttl_persistent",
+    "reply": ":-1\r\n"
+  },
+  {
+    "name": "type_string",
+    "reply": "+string\r\n"
+  },
+  {
+    "name": "type_none",
+    "reply": "+none\r\n"
+  },
+  {
+    "name": "expire",
+    "reply": ":1\r\n"
+  },
+  {
+    "name": "scan",
+    "reply": "*2\r\n$1\r\n0\r\n*2\r\n$2\r\nk4\r\n$1\r\nk\r\n"
+  },
+  {
+    "name": "dbsize",
+    "reply": ":2\r\n"
+  },
+  {
+    "name": "info_keyspace",
+    "reply": "$44\r\n# Keyspace\r\ndb0:keys=2,expires=2,avg_ttl=0\r\n\r\n"
+  },
+  {
+    "name": "info_keysizes",
+    "reply": "$0\r\n\r\n"
+  },
+  {
+    "name": "info_errorstats",
+    "reply": "$65\r\n# Errorstats\r\nerrorstat_ERR:count=21\r\nerrorstat_NOPROTO:count=1\r\n\r\n"
+  },
+  {
+    "name": "info_replication",
+    "reply": "$349\r\n# Replication\r\nrole:master\r\nconnected_slaves:0\r\nmaster_failover_state:no-failover\r\nmaster_replid:6cbf59cfa55ef1c5e35f2ab56a9f5ad9f9304707\r\nmaster_replid2:0000000000000000000000000000000000000000\r\nmaster_repl_offset:0\r\nsecond_repl_offset:-1\r\nrepl_backlog_active:0\r\nrepl_backlog_size:1048576\r\nrepl_backlog_first_byte_offset:0\r\nrepl_backlog_histlen:0\r\n\r\n"
+  },
+  {
+    "name": "select_bad",
+    "reply": "-ERR DB index is out of range\r\n"
+  },
+  {
+    "name": "save",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "module_list",
+    "reply": "*0\r\n"
+  },
+  {
+    "name": "module_load_missing",
+    "reply": "-ERR Error loading the extension. Please check the server logs.\r\n"
+  },
+  {
+    "name": "eval_return_int",
+    "reply": ":1\r\n"
+  },
+  {
+    "name": "eval_return_str",
+    "reply": "$1\r\nx\r\n"
+  },
+  {
+    "name": "eval_arity",
+    "reply": "-ERR wrong number of arguments for 'eval' command\r\n"
+  },
+  {
+    "name": "eval_numkeys_bad",
+    "reply": "-ERR Number of keys can't be greater than number of args\r\n"
+  },
+  {
+    "name": "script_load",
+    "reply": "$40\r\n573cd020e2fc941d149285df8b681959190edd09\r\n"
+  },
+  {
+    "name": "evalsha_ok",
+    "reply": "$1\r\nx\r\n"
+  },
+  {
+    "name": "evalsha_missing",
+    "reply": "-NOSCRIPT No matching script. Please use EVAL.\r\n"
+  },
+  {
+    "name": "script_exists",
+    "reply": "*2\r\n:1\r\n:0\r\n"
+  },
+  {
+    "name": "function_list",
+    "reply": "-ERR unknown command `FUNCTION`, with args beginning with: `LIST`, \r\n"
+  },
+  {
+    "name": "role",
+    "reply": "*3\r\n$6\r\nmaster\r\n:0\r\n*0\r\n"
+  },
+  {
+    "name": "replicaof_no_one",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "time",
+    "reply": "*2\r\n$10\r\n1791550821\r\n$6\r\n756440\r\n"
+  },
+  {
+    "name": "quit",
+    "reply": "+OK\r\n"
+  },
+  {
+    "name": "proto_bad_multibulk",
+    "reply": "-ERR Protocol error: invalid multibulk length\r\n",
+    "closed": true
+  },
+  {
+    "name": "proto_expected_dollar",
+    "reply": "-ERR Protocol error: expected '$', got 'f'\r\n",
+    "closed": true
+  },
+  {
+    "name": "proto_bad_bulk_len",
+    "reply": "-ERR Protocol error: invalid bulk length\r\n",
+    "closed": true
+  },
+  {
+    "name": "proto_unbalanced_quotes",
+    "reply": "-ERR Protocol error: unbalanced quotes in request\r\n",
+    "closed": true
+  },
+  {
+    "name": "http_post",
+    "closed": true
+  },
+  {
+    "name": "http_host_line",
+    "closed": true
+  },
+  {
+    "name": "psync",
+    "reply_base64": "K0ZVTExSRVNZTkMgMWE2NDNhMjdjNzcyM2YyZjVjODM1ZGEzYjRiMWRhZDZjZTkyMjZhNCAwDQokMjQxDQpSRURJUzAwMDn6CXJlZGlzLXZlcgY2LjIuMTj6CnJlZGlzLWJpdHPAQPoFY3RpbWXCZeXIavoIdXNlZC1tZW3CUNgdAPoOcmVwbC1zdHJlYW0tZGLAAPoHcmVwbC1pZCgxYTY0M2EyN2M3NzIzZjJmNWM4MzVkYTNiNGIxZGFkNmNlOTIyNmE0+gtyZXBsLW9mZnNldMAA+gxhb2YtcHJlYW1ibGXAAP4A+wIC/ACcwSChAQAAAAJrNAF2/KNXzyChAQAAAAFrAnYz+gNsdWEIcmV0dXJuIDH6A2x1YQpyZXR1cm4gJ3gn/79wQvE9tVFc"
+  }
+]

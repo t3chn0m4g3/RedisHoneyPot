@@ -25,21 +25,43 @@ func TestRuntimeFingerprintVariesPerServer(t *testing.T) {
 
 func TestRuntimeFingerprintKeepsPersonaAnchors(t *testing.T) {
 	server := newTestServer(t, "legacy6")
-	info := parseInfo(t, server.info("all"))
+	info := parseInfo(t, infoText(server, "all"))
 
 	assertInfoValue(t, info, "redis_version", "6.2.18")
-	assertInfoValue(t, info, "os", "Linux 5.4.0-196-generic x86_64")
 	assertInfoValue(t, info, "arch_bits", "64")
-	assertInfoValue(t, info, "config_file", "/etc/redis/redis.conf")
+	assertInfoValue(t, info, "config_file", "/etc/redis/6379.conf")
+	assertInfoValue(t, info, "executable", "/usr/local/bin/redis-server")
+	assertInfoValue(t, info, "gcc_version", "9.4.0")
+	if !containsString(focalKernels, info["os"]) {
+		t.Fatalf("os %q is not one of the persona kernels", info["os"])
+	}
 
-	if got := call(server, &clientState{connected: time.Now()}, "CONFIG", "GET", "dir"); got != "*2\r\n$3\r\ndir\r\n$14\r\n/var/lib/redis\r\n" {
+	if got := call(server, &clientState{connected: time.Now()}, "CONFIG", "GET", "dir"); got != "*2\r\n$3\r\ndir\r\n$19\r\n/var/lib/redis/6379\r\n" {
 		t.Fatalf("CONFIG GET dir got %q", got)
 	}
 }
 
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
+func TestContainerPersonaRunsAsPIDOne(t *testing.T) {
+	info := parseInfo(t, infoText(newTestServer(t, "redis74"), "server"))
+	assertInfoValue(t, info, "process_id", "1")
+	assertInfoValue(t, info, "executable", "/data/redis-server")
+	if strings.Contains(info["os"], "linuxkit") {
+		t.Fatalf("os %q leaks the recording host", info["os"])
+	}
+}
+
 func TestRuntimeFingerprintInfoFormatAndMemoryConsistency(t *testing.T) {
-	server := newTestServer(t, "current8")
-	info := parseInfo(t, server.info("all"))
+	server := newTestServer(t, "legacy6")
+	info := parseInfo(t, infoText(server, "all"))
 
 	assertHexLength(t, info["run_id"], 40)
 	assertHexLength(t, info["master_replid"], 40)
@@ -85,7 +107,7 @@ func TestRDBChangesEvolveWithMutationsAndSave(t *testing.T) {
 	server := newTestServer(t, "legacy6")
 	state := &clientState{connected: time.Now()}
 
-	initial := parseInfo(t, server.info("persistence"))
+	initial := parseInfo(t, infoText(server, "persistence"))
 	initialSaveTime := parseInfoInt(t, initial, "rdb_last_save_time")
 	if got := parseInfoInt(t, initial, "rdb_changes_since_last_save"); got != 0 {
 		t.Fatalf("initial rdb changes got %d, want 0", got)
@@ -95,7 +117,7 @@ func TestRDBChangesEvolveWithMutationsAndSave(t *testing.T) {
 		t.Fatalf("SET got %q", got)
 	}
 
-	afterSet := parseInfo(t, server.info("persistence"))
+	afterSet := parseInfo(t, infoText(server, "persistence"))
 	if got := parseInfoInt(t, afterSet, "rdb_changes_since_last_save"); got < 1 {
 		t.Fatalf("after SET rdb changes got %d, want >= 1", got)
 	}
@@ -104,7 +126,7 @@ func TestRDBChangesEvolveWithMutationsAndSave(t *testing.T) {
 		t.Fatalf("SAVE got %q", got)
 	}
 
-	afterSave := parseInfo(t, server.info("persistence"))
+	afterSave := parseInfo(t, infoText(server, "persistence"))
 	if got := parseInfoInt(t, afterSave, "rdb_changes_since_last_save"); got != 0 {
 		t.Fatalf("after SAVE rdb changes got %d, want 0", got)
 	}

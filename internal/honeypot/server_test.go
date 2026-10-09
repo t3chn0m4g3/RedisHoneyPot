@@ -58,7 +58,7 @@ func TestServerSmokeInlineAndRESPCommands(t *testing.T) {
 }
 
 func TestServerSmokeHoneypotFlow(t *testing.T) {
-	server := newTestServer(t, "current8")
+	server := newTestServer(t, "redis74")
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- server.Start()
@@ -88,7 +88,6 @@ func TestServerSmokeHoneypotFlow(t *testing.T) {
 		"CONFIG SET dbfilename authorized_keys\r\n",
 		"SET crackit ssh-rsa-AAAA\r\n",
 		"SAVE\r\n",
-		"SLAVEOF 198.51.100.10 6379\r\n",
 		"REPLCONF listening-port 6379\r\n",
 	}
 	for _, command := range flow {
@@ -109,8 +108,17 @@ func TestServerSmokeHoneypotFlow(t *testing.T) {
 	if got := readRESP(t, reader); !strings.HasPrefix(got, "+FULLRESYNC ") {
 		t.Fatalf("PSYNC first reply got %q", got)
 	}
-	if got := readRESP(t, reader); got != "$0\r\n\r\n" {
-		t.Fatalf("PSYNC RDB payload got %q", got)
+	header, err := reader.ReadString('\n')
+	if err != nil || !strings.HasPrefix(header, "$") {
+		t.Fatalf("PSYNC RDB header got %q, %v", header, err)
+	}
+	size, _ := strconv.Atoi(strings.TrimSpace(header[1:]))
+	rdb := make([]byte, size)
+	if _, err := io.ReadFull(reader, rdb); err != nil || !strings.HasPrefix(string(rdb), "REDIS0012") {
+		t.Fatalf("PSYNC RDB payload got %q, %v", rdb, err)
+	}
+	if !strings.Contains(string(rdb), "crackit") {
+		t.Fatal("PSYNC RDB does not contain the stored key")
 	}
 }
 

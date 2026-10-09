@@ -6,7 +6,12 @@ addr="${REDISHONEYPOT_SMOKE_ADDR:-127.0.0.1:6379}"
 log_file="${REDISHONEYPOT_LOG_FILE:-logs/redishoneypot.log}"
 
 mkdir -p "$(dirname "$log_file")"
-: > "$log_file"
+# Never truncate: the log may hold live attacker events. Only inspect what this
+# run appends after the current end of file.
+log_offset=0
+if [[ -f "$log_file" ]]; then
+  log_offset="$(wc -c < "$log_file" | tr -d ' ')"
+fi
 
 container_id="$(docker compose ps -q "$service")"
 if [[ -z "$container_id" ]]; then
@@ -28,4 +33,4 @@ if [[ "$status" != "healthy" && "$status" != "none" ]]; then
   exit 1
 fi
 
-GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.4}" go run ./cmd/container-smoketest -addr "$addr" -log-file "$log_file"
+GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.4}" go run ./cmd/container-smoketest -addr "$addr" -log-file "$log_file" -log-offset "$log_offset"

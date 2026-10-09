@@ -32,15 +32,26 @@ func TestRESPEncoder(t *testing.T) {
 }
 
 func TestReadInlineCommand(t *testing.T) {
-	reader := bufio.NewReader(strings.NewReader("SET \"user name\" 'marco'\\ value\r\n"))
+	// Redis sdssplitargs semantics: escapes only inside quotes, backslash is
+	// literal outside quotes.
+	reader := bufio.NewReader(strings.NewReader("SET \"user name\" 'it\\'s' \"a\\x41\\n\" a\\b\r\n"))
 	got, err := ReadCommand(reader, ParserConfig{})
 	if err != nil {
 		t.Fatalf("ReadCommand returned error: %v", err)
 	}
 
-	want := []string{"SET", "user name", "marco value"}
+	want := []string{"SET", "user name", "it's", "aA\n", "a\\b"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("got %#v, want %#v", got, want)
+	}
+}
+
+func TestReadInlineCommandRejectsUnbalancedQuotes(t *testing.T) {
+	for _, line := range []string{"SET 'marco'\\ value\r\n", "SET \"open\r\n", "SET \"a\"b\r\n"} {
+		_, err := ReadCommand(bufio.NewReader(strings.NewReader(line)), ParserConfig{})
+		if err == nil || err.Error() != "unbalanced quotes in request" {
+			t.Fatalf("%q: got error %v, want unbalanced quotes", line, err)
+		}
 	}
 }
 
@@ -68,7 +79,7 @@ func TestReadCommandRejectsMalformedArray(t *testing.T) {
 func TestReadCommandRejectsOversizedBulkString(t *testing.T) {
 	reader := bufio.NewReader(strings.NewReader("*2\r\n$3\r\nGET\r\n$5\r\nvalue\r\n"))
 	_, err := ReadCommand(reader, ParserConfig{MaxBulkBytes: 4})
-	if err == nil || !strings.Contains(err.Error(), "bulk string exceeds limit") {
+	if err == nil || err.Error() != "invalid bulk length" {
 		t.Fatalf("got error %v, want bulk string limit error", err)
 	}
 }

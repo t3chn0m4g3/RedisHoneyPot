@@ -31,7 +31,14 @@ func newTestServer(t *testing.T, profileName string) *RedisServer {
 }
 
 func call(server *RedisServer, state *clientState, args ...string) string {
-	return string(server.handleCommand(state, args).reply.Bytes())
+	if state.proto == 0 {
+		state.proto = 2
+	}
+	return string(server.handleCommand(state, args).reply.Encode(state.proto))
+}
+
+func infoText(server *RedisServer, sections ...string) string {
+	return server.handleInfo(&clientState{connected: time.Now(), proto: 2}, sections).str
 }
 
 func TestCommandStringStoreAndRESPRegression(t *testing.T) {
@@ -95,10 +102,13 @@ func TestConfigRegressionAndMutation(t *testing.T) {
 	if got := call(server, state, "CONFIG", "GET", "does-not-exist"); got != "*0\r\n" {
 		t.Fatalf("CONFIG GET missing got %q, want empty array", got)
 	}
-	if got := call(server, state, "CONFIG", "GET", "dir"); got != "*2\r\n$3\r\ndir\r\n$14\r\n/var/lib/redis\r\n" {
+	if got := call(server, state, "CONFIG", "GET", "dir"); got != "*2\r\n$3\r\ndir\r\n$19\r\n/var/lib/redis/6379\r\n" {
 		t.Fatalf("CONFIG GET dir got %q", got)
 	}
-	if got := call(server, state, "CONFIG", "SET", "dir", "/tmp"); got != "+OK\r\n" {
+	if got := call(server, state, "CONFIG", "SET", "dir", "/nonexistent-xyz"); got != "-ERR Changing directory: No such file or directory\r\n" {
+		t.Fatalf("CONFIG SET missing dir got %q", got)
+	}
+	if got := call(server, state, "CONFIG", "SET", "dir", "/tmp/"); got != "+OK\r\n" {
 		t.Fatalf("CONFIG SET dir got %q", got)
 	}
 	if got := call(server, state, "CONFIG", "GET", "dir"); got != "*2\r\n$3\r\ndir\r\n$4\r\n/tmp\r\n" {
@@ -120,31 +130,50 @@ func TestProfilesChangeInfoFingerprint(t *testing.T) {
 }
 
 func TestHoneypotRealismCommandsDoNotExecuteButLookWritable(t *testing.T) {
-	server := newTestServer(t, "current8")
+	server := newTestServer(t, "redis74")
 	state := &clientState{connected: time.Now()}
 
-	tests := [][]string{
-		{"AUTH", "hunter2"},
-		{"CONFIG", "SET", "dir", "/tmp"},
+	for _, args := range [][]string{
+		{"CONFIG", "SET", "dir", "/root/.ssh"},
 		{"CONFIG", "SET", "dbfilename", "authorized_keys"},
 		{"SET", "payload", "ssh-rsa AAAA..."},
 		{"SAVE"},
-		{"SLAVEOF", "198.51.100.10", "6379"},
 		{"REPLCONF", "listening-port", "6379"},
-		{"MODULE", "LOAD", "/tmp/exp.so"},
-	}
-
-	for _, args := range tests {
+	} {
 		if got := call(server, state, args...); got != "+OK\r\n" {
 			t.Fatalf("%v got %q, want OK", args, got)
 		}
 	}
 
-	if got := call(server, state, "PSYNC", "?", "-1"); !strings.HasPrefix(got, "+FULLRESYNC ") || !strings.HasSuffix(got, "$0\r\n\r\n") {
-		t.Fatalf("PSYNC got %q, want plausible empty full resync", got)
+	if got := call(server, state, "MODULE", "LOAD", "/tmp/exp.so"); got != "-ERR Error loading the extension. Please check the server logs.\r\n" {
+		t.Fatalf("MODULE LOAD got %q", got)
 	}
-	if got := call(server, state, "MODULE", "LIST"); !strings.Contains(got, "search") {
+	if got := call(server, state, "PSYNC", "?", "-1"); !strings.HasPrefix(got, "+FULLRESYNC ") || !strings.Contains(got, "REDIS0012") {
+		t.Fatalf("PSYNC got %q, want full resync with RDB v12", got)
+	}
+
+	if got := call(server, state, "SLAVEOF", "198.51.100.10", "6379"); got != "+OK\r\n" {
+		t.Fatalf("SLAVEOF got %q", got)
+	}
+	if got := call(server, state, "ROLE"); !strings.HasPrefix(got, "*5\r\n$5\r\nslave\r\n$13\r\n198.51.100.10\r\n:6379\r\n$7\r\nconnect\r\n") {
+		t.Fatalf("ROLE as replica got %q", got)
+	}
+	if got := call(server, state, "SET", "x", "y"); got != "-READONLY You can't write against a read only replica.\r\n" {
+		t.Fatalf("SET on replica got %q", got)
+	}
+	if got := infoText(server, "replication"); !strings.Contains(got, "master_host:198.51.100.10") || !strings.Contains(got, "master_link_status:down") {
+		t.Fatalf("INFO replication as replica got %q", got)
+	}
+	if got := call(server, state, "REPLICAOF", "NO", "ONE"); got != "+OK\r\n" {
+		t.Fatalf("REPLICAOF NO ONE got %q", got)
+	}
+
+	current := newTestServer(t, "current8")
+	if got := call(current, state, "MODULE", "LIST"); !strings.Contains(got, "search") {
 		t.Fatalf("MODULE LIST current profile got %q, want built-in module names", got)
+	}
+	if got := call(current, state, "CONFIG", "SET", "dir", "/tmp"); !strings.Contains(got, "can't set protected config") {
+		t.Fatalf("current8 CONFIG SET dir got %q, want protected config error", got)
 	}
 }
 

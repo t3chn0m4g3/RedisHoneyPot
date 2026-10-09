@@ -17,21 +17,23 @@ import (
 func main() {
 	var address string
 	var logFile string
+	var logOffset int64
 	var timeout time.Duration
 
 	flag.StringVar(&address, "addr", "127.0.0.1:6379", "RedisHoneyPot address")
 	flag.StringVar(&logFile, "log-file", "logs/redishoneypot.log", "host-side JSONL event log path")
+	flag.Int64Var(&logOffset, "log-offset", 0, "byte offset in the log file where this smoke run starts")
 	flag.DurationVar(&timeout, "timeout", 15*time.Second, "overall smoke test timeout")
 	flag.Parse()
 
-	if err := run(address, logFile, timeout); err != nil {
+	if err := run(address, logFile, logOffset, timeout); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "container smoke test failed: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println("container smoke test passed")
 }
 
-func run(address string, logFile string, timeout time.Duration) error {
+func run(address string, logFile string, logOffset int64, timeout time.Duration) error {
 	conn, err := dialUntil(address, timeout)
 	if err != nil {
 		return err
@@ -41,6 +43,13 @@ func run(address string, logFile string, timeout time.Duration) error {
 	reader := bufio.NewReader(conn)
 	deadline := time.Now().Add(timeout)
 	_ = conn.SetDeadline(deadline)
+
+	// The smoke test may run against a live sensor, so it restores the state it
+	// touches and leaves no smoke-key or changed dir behind for attackers to see.
+	originalDir, err := configGet(conn, reader, "dir")
+	if err != nil {
+		return err
+	}
 
 	checks := []struct {
 		command string
@@ -52,6 +61,8 @@ func run(address string, logFile string, timeout time.Duration) error {
 		{"GET smoke-key\r\n", "$11\r\nsmoke-value\r\n"},
 		{"CONFIG SET dir /tmp\r\n", "+OK\r\n"},
 		{"SAVE\r\n", "+OK\r\n"},
+		{"DEL smoke-key\r\n", ":1\r\n"},
+		{respCommand("CONFIG", "SET", "dir", originalDir), "+OK\r\n"},
 		{"QUIT\r\n", "+OK\r\n"},
 	}
 
@@ -68,7 +79,32 @@ func run(address string, logFile string, timeout time.Duration) error {
 		}
 	}
 
-	return waitForLogEvidence(logFile, timeout)
+	return waitForLogEvidence(logFile, logOffset, timeout)
+}
+
+func respCommand(args ...string) string {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "*%d\r\n", len(args))
+	for _, arg := range args {
+		fmt.Fprintf(&builder, "$%d\r\n%s\r\n", len(arg), arg)
+	}
+	return builder.String()
+}
+
+func configGet(conn net.Conn, reader *bufio.Reader, key string) (string, error) {
+	if _, err := io.WriteString(conn, respCommand("CONFIG", "GET", key)); err != nil {
+		return "", fmt.Errorf("write CONFIG GET %s: %w", key, err)
+	}
+	got, err := readRESP(reader)
+	if err != nil {
+		return "", fmt.Errorf("read CONFIG GET %s: %w", key, err)
+	}
+	parts := strings.Split(got, "\r\n")
+	// *2, $len, key, $len, value, ""
+	if len(parts) != 6 || parts[0] != "*2" || parts[2] != key {
+		return "", fmt.Errorf("CONFIG GET %s got %q", key, got)
+	}
+	return parts[4], nil
 }
 
 func dialUntil(address string, timeout time.Duration) (net.Conn, error) {
@@ -135,21 +171,21 @@ func readRESP(reader *bufio.Reader) (string, error) {
 	}
 }
 
-func waitForLogEvidence(logFile string, timeout time.Duration) error {
+func waitForLogEvidence(logFile string, logOffset int64, timeout time.Duration) error {
 	if logFile == "" {
 		return nil
 	}
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		result, err := inspectLogFile(logFile)
+		result, err := inspectLogFile(logFile, logOffset)
 		if err == nil && result.hasPing && result.hasSet && result.hasSave && result.hasClose {
 			return nil
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
 
-	result, err := inspectLogFile(logFile)
+	result, err := inspectLogFile(logFile, logOffset)
 	if err != nil {
 		return err
 	}
@@ -163,11 +199,15 @@ type logEvidence struct {
 	hasClose bool
 }
 
-func inspectLogFile(logFile string) (logEvidence, error) {
+func inspectLogFile(logFile string, logOffset int64) (logEvidence, error) {
 	data, err := os.ReadFile(logFile)
 	if err != nil {
 		return logEvidence{}, err
 	}
+	if logOffset > int64(len(data)) {
+		return logEvidence{}, fmt.Errorf("log offset %d beyond log size %d; was the log rotated?", logOffset, len(data))
+	}
+	data = data[logOffset:]
 
 	var evidence logEvidence
 	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
