@@ -221,3 +221,20 @@ func TestAnalysisHintWithoutOtherAttrs(t *testing.T) {
 		t.Fatalf("PING analysis attrs = %v, want none", attrs)
 	}
 }
+
+func TestScriptCommandsLogCorrelatableFields(t *testing.T) {
+	attrs := commandAnalysisAttrs([]string{"EVAL", "return 'x'", "0"})
+	fields := map[string]string{}
+	for _, attr := range attrs {
+		fields[attr.Key] = attr.Value.String()
+	}
+	if fields["analysis_hint"] != "redis_lua_eval" || fields["script_sha1"] != "573cd020e2fc941d149285df8b681959190edd09" ||
+		fields["script_text"] != "return 'x'" || fields["script_numkeys"] != "0" || fields["script_size"] != "10" {
+		t.Fatalf("EVAL attrs = %v", fields)
+	}
+
+	attrs = commandAnalysisAttrs([]string{"EVALSHA", "573CD020E2FC941D149285DF8B681959190EDD09", "0"})
+	if attrs[0].Value.String() != "redis_lua_eval" || attrs[1].Key != "script_sha1" || attrs[1].Value.String() != "573cd020e2fc941d149285df8b681959190edd09" {
+		t.Fatalf("EVALSHA attrs = %v", attrs)
+	}
+}

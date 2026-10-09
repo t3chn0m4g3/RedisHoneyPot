@@ -13,7 +13,10 @@ import (
 	"time"
 )
 
-const maxLoggedArgsBytes = 512
+const (
+	maxLoggedArgsBytes    = 512
+	maxLoggedPayloadBytes = 8192
+)
 
 func NewJSONLogger(w io.Writer) *slog.Logger {
 	return slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{
@@ -312,6 +315,27 @@ func commandAnalysisAttrs(args []string) []slog.Attr {
 		if len(args) > 1 {
 			attrs = append(attrs, slog.String("client_subcommand", strings.ToLower(args[1])))
 		}
+	case "eval", "eval_ro":
+		if len(args) > 1 {
+			attrs = append(attrs, scriptAttrs(args[1])...)
+		}
+		if len(args) > 2 {
+			if numKeys, err := strconv.Atoi(args[2]); err == nil {
+				attrs = append(attrs, slog.Int("script_numkeys", numKeys))
+			}
+		}
+	case "evalsha", "evalsha_ro":
+		if len(args) > 1 {
+			attrs = append(attrs, slog.String("script_sha1", strings.ToLower(args[1])))
+		}
+	case "script":
+		if len(args) > 2 && strings.EqualFold(args[1], "load") {
+			attrs = append(attrs, scriptAttrs(args[2])...)
+		}
+	case "function":
+		if len(args) > 2 && strings.EqualFold(args[1], "load") {
+			attrs = append(attrs, scriptAttrs(args[len(args)-1])...)
+		}
 	}
 
 	hint := analysisHint(args)
@@ -348,8 +372,31 @@ func analysisHint(args []string) string {
 		}
 	case "auth":
 		return "redis_auth_attempt"
+	case "eval", "eval_ro", "evalsha", "evalsha_ro":
+		return "redis_lua_eval"
+	case "script":
+		if len(args) >= 2 && strings.EqualFold(args[1], "load") {
+			return "redis_lua_script_load"
+		}
+	case "function":
+		if len(args) >= 2 && strings.EqualFold(args[1], "load") {
+			return "redis_function_load"
+		}
 	}
 	return genericAnalysisHint(args[0])
+}
+
+// scriptAttrs describes a Lua script body; the SHA1 matches what EVALSHA
+// callers use, so script loads and later calls can be correlated.
+func scriptAttrs(body string) []slog.Attr {
+	text, truncated := joinArgsForLog([]string{body}, maxLoggedPayloadBytes)
+	return []slog.Attr{
+		slog.String("script_sha1", scriptSHA1(body)),
+		slog.String("script_sha256", hashString(body)),
+		slog.Int("script_size", len(body)),
+		slog.String("script_text", text),
+		slog.Bool("script_truncated", truncated),
+	}
 }
 
 func genericAnalysisHint(command string) string {

@@ -3,6 +3,8 @@ package honeypot
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -69,4 +71,142 @@ func (c *scriptCache) flush() {
 	defer c.mu.Unlock()
 	c.scripts = make(map[string]string)
 	c.order = nil
+}
+
+// scriptReply answers a script without running it. Only literal returns are
+// recognised; everything else returns nil, which a caller cannot tell apart
+// from a script whose last statement returns nothing.
+func scriptReply(body string) RESPValue {
+	text := strings.TrimSpace(body)
+	text = strings.TrimSuffix(text, ";")
+	value, ok := strings.CutPrefix(text, "return ")
+	if !ok {
+		return NilBulkString()
+	}
+	value = strings.TrimSpace(value)
+	if n, err := strconv.ParseInt(value, 10, 64); err == nil {
+		return IntegerReply(n)
+	}
+	if len(value) >= 2 && (value[0] == '\'' || value[0] == '"') && value[len(value)-1] == value[0] &&
+		!strings.ContainsRune(value[1:len(value)-1], rune(value[0])) {
+		return BulkString(value[1 : len(value)-1])
+	}
+	if value == "true" {
+		return IntegerReply(1)
+	}
+	return NilBulkString()
+}
+
+func (s *RedisServer) noScriptError() RESPValue {
+	if s.profile.isValkey() {
+		return ErrorReply("NOSCRIPT No matching script.")
+	}
+	return ErrorReply("NOSCRIPT No matching script. Please use EVAL.")
+}
+
+// checkNumKeys validates the numkeys argument of EVAL-style commands.
+func checkNumKeys(args []string) RESPValue {
+	numKeys, err := strconv.ParseInt(args[2], 10, 64)
+	if err != nil {
+		return notIntegerErr
+	}
+	if numKeys < 0 {
+		return ErrorReply("ERR Number of keys can't be negative")
+	}
+	if numKeys > int64(len(args)-3) {
+		return ErrorReply("ERR Number of keys can't be greater than number of args")
+	}
+	return RESPValue{}
+}
+
+func (s *RedisServer) handleEval(name string, args []string) RESPValue {
+	if reply := checkNumKeys(args); reply.kind == respError {
+		return reply
+	}
+	if strings.HasPrefix(name, "evalsha") {
+		body, found := s.scripts.get(strings.ToLower(args[1]))
+		if !found {
+			return s.noScriptError()
+		}
+		return scriptReply(body)
+	}
+	s.scripts.add(args[1])
+	return scriptReply(args[1])
+}
+
+func (s *RedisServer) handleScript(args []string) RESPValue {
+	switch strings.ToLower(args[1]) {
+	case "load":
+		if len(args) != 3 {
+			return s.legacySubcommandError(args[1], "SCRIPT")
+		}
+		return BulkString(s.scripts.add(args[2]))
+	case "exists":
+		if len(args) < 3 {
+			return s.legacySubcommandError(args[1], "SCRIPT")
+		}
+		items := make([]RESPValue, 0, len(args)-2)
+		for _, sha := range args[2:] {
+			if _, found := s.scripts.get(strings.ToLower(sha)); found {
+				items = append(items, IntegerReply(1))
+			} else {
+				items = append(items, IntegerReply(0))
+			}
+		}
+		return Array(items...)
+	case "flush":
+		s.scripts.flush()
+		return SimpleString("OK")
+	case "kill":
+		return ErrorReply("NOTBUSY No scripts in execution right now.")
+	case "help":
+		return BulkArray([]string{
+			"SCRIPT <subcommand> [<arg> [value] [opt] ...]. Subcommands are:",
+			"EXISTS <sha1> [<sha1> ...]",
+			"    Return information about the existence of the scripts in the script cache.",
+			"FLUSH [ASYNC|SYNC]",
+			"    Flush the Lua scripts cache.",
+			"KILL",
+			"    Kill the currently executing Lua script.",
+			"LOAD <script>",
+			"    Load a script into the scripts cache without executing it.",
+			"HELP",
+			"    Print this help.",
+		})
+	default:
+		return s.subcommandError(args[1], "SCRIPT")
+	}
+}
+
+func (s *RedisServer) handleFunction(args []string) RESPValue {
+	switch strings.ToLower(args[1]) {
+	case "list":
+		return Array()
+	case "load":
+		code := args[len(args)-1]
+		header, _, _ := strings.Cut(code, "\n")
+		if !strings.HasPrefix(header, "#!") {
+			return ErrorReply("ERR Missing library metadata")
+		}
+		for _, field := range strings.Fields(header) {
+			if name, ok := strings.CutPrefix(field, "name="); ok && name != "" {
+				return BulkString(name)
+			}
+		}
+		return ErrorReply("ERR Library name was not given")
+	case "delete":
+		return ErrorReply("ERR Library not found")
+	case "stats":
+		return Map(
+			BulkString("running_script"), NilBulkString(),
+			BulkString("engines"), Map(
+				BulkString("LUA"), Map(
+					BulkString("libraries_count"), IntegerReply(0),
+					BulkString("functions_count"), IntegerReply(0),
+				),
+			),
+		)
+	default:
+		return SimpleString("OK")
+	}
 }

@@ -34,6 +34,8 @@ var emulatedCommands = map[string]bool{
 	"quit": true, "replconf": true, "replicaof": true, "role": true, "save": true,
 	"scan": true, "select": true, "set": true, "slaveof": true, "sync": true,
 	"time": true, "ttl": true, "type": true,
+	"eval": true, "eval_ro": true, "evalsha": true, "evalsha_ro": true,
+	"script": true, "function": true, "fcall": true, "fcall_ro": true,
 }
 
 func ok(reply RESPValue) commandResult {
@@ -260,6 +262,17 @@ func (s *RedisServer) execute(state *clientState, name string, args []string) co
 		return ok(SimpleString("OK"))
 	case "psync", "sync":
 		return ok(s.handleSync(state, name))
+	case "eval", "eval_ro", "evalsha", "evalsha_ro":
+		return ok(s.handleEval(name, args))
+	case "script":
+		return ok(s.handleScript(args))
+	case "function":
+		return ok(s.handleFunction(args))
+	case "fcall", "fcall_ro":
+		if reply := checkNumKeys(args); reply.kind == respError {
+			return ok(reply)
+		}
+		return ok(ErrorReply("ERR Function not found"))
 	default:
 		return rejected(s.unknownCommand(args))
 	}

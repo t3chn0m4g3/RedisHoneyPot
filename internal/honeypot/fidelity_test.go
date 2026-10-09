@@ -20,11 +20,7 @@ import (
 )
 
 // skippedProbes are not emulated yet; each later phase removes its entries.
-var skippedProbes = map[string]bool{
-	"eval_return_int": true, "eval_return_str": true, "eval_arity": true, "eval_numkeys_bad": true,
-	"script_load": true, "evalsha_ok": true, "evalsha_missing": true, "script_exists": true,
-	"function_list": true, "psync": true,
-}
+var skippedProbes = map[string]bool{}
 
 // dataCaptureRequests mirrors cmd/fixture-recorder's first connection, so
 // INFO statistics see the same command history as the real server did.
