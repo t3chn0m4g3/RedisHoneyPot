@@ -37,7 +37,9 @@ type ServerOptions struct {
 	// MaxCommandBytes caps the summed bulk payload of a single command.
 	MaxCommandBytes int
 	MaxClients      int
-	Logger          *slog.Logger
+	// MaxLoggedPayloadBytes caps value_text, script_text and config_value.
+	MaxLoggedPayloadBytes int
+	Logger                *slog.Logger
 	// TrustedPeer decides whether a peer may use the healthcheck client name to
 	// suppress session logs. Defaults to loopback peers only.
 	TrustedPeer func(net.Addr) bool
@@ -106,22 +108,38 @@ type clientState struct {
 	netOut     int64
 	commands   int64
 	replica    bool
+
+	// writeTargetSet is set once CONFIG SET dir/dbfilename succeeded.
+	writeTargetSet bool
+	hints          []string
+}
+
+func (s *clientState) addHint(hint string) {
+	for _, existing := range s.hints {
+		if existing == hint {
+			return
+		}
+	}
+	if len(s.hints) < 32 {
+		s.hints = append(s.hints, hint)
+	}
 }
 
 func DefaultServerOptions() ServerOptions {
 	profile, _ := LookupRedisProfile(DefaultProfileName)
 	return ServerOptions{
-		Address:         "0.0.0.0:6379",
-		Network:         "tcp",
-		Profile:         profile,
-		IdleTimeout:     defaultIdleTimeout,
-		MaxBulkBytes:    defaultMaxBulkBytes,
-		MaxInlineBytes:  defaultMaxInlineBytes,
-		MaxArrayElems:   defaultMaxArrayElems,
-		MaxCommandBytes: defaultMaxCommandSize,
-		MaxClients:      defaultMaxClients,
-		Logger:          NewJSONLogger(os.Stdout),
-		TrustedPeer:     isLoopbackPeer,
+		Address:               "0.0.0.0:6379",
+		Network:               "tcp",
+		Profile:               profile,
+		IdleTimeout:           defaultIdleTimeout,
+		MaxBulkBytes:          defaultMaxBulkBytes,
+		MaxInlineBytes:        defaultMaxInlineBytes,
+		MaxArrayElems:         defaultMaxArrayElems,
+		MaxCommandBytes:       defaultMaxCommandSize,
+		MaxClients:            defaultMaxClients,
+		MaxLoggedPayloadBytes: defaultMaxLoggedPayloadBytes,
+		Logger:                NewJSONLogger(os.Stdout),
+		TrustedPeer:           isLoopbackPeer,
 	}
 }
 
@@ -160,6 +178,9 @@ func NewRedisServerWithOptions(options ServerOptions) (*RedisServer, error) {
 	}
 	if options.MaxClients <= 0 {
 		options.MaxClients = defaultMaxClients
+	}
+	if options.MaxLoggedPayloadBytes <= 0 {
+		options.MaxLoggedPayloadBytes = defaultMaxLoggedPayloadBytes
 	}
 	if options.Logger == nil {
 		options.Logger = NewJSONLogger(os.Stdout)

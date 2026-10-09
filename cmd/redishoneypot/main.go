@@ -33,6 +33,7 @@ func main() {
 	flag.IntVar(&options.MaxBulkBytes, "max-bulk-bytes", options.MaxBulkBytes, "maximum RESP bulk string size")
 	flag.IntVar(&options.MaxCommandBytes, "max-command-bytes", options.MaxCommandBytes, "maximum summed bulk payload of one command")
 	flag.IntVar(&options.MaxClients, "max-clients", options.MaxClients, "maximum concurrent client connections")
+	flag.IntVar(&options.MaxLoggedPayloadBytes, "max-logged-payload-bytes", options.MaxLoggedPayloadBytes, "maximum bytes of SET values, scripts and CONFIG values in logs")
 	flag.StringVar(&logFilePath, "log-file", "", "optional JSONL honeypot event log file")
 	flag.Parse()
 
@@ -89,6 +90,7 @@ func main() {
 		"max_bulk_bytes", options.MaxBulkBytes,
 		"max_command_bytes", options.MaxCommandBytes,
 		"max_clients", options.MaxClients,
+		"max_logged_payload_bytes", options.MaxLoggedPayloadBytes,
 	}
 	if logFilePath != "" {
 		startAttrs = append(startAttrs, "log_file", logFilePath)

@@ -8,14 +8,16 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const (
-	maxLoggedArgsBytes    = 512
-	maxLoggedPayloadBytes = 8192
+	maxLoggedArgsBytes           = 512
+	defaultMaxLoggedPayloadBytes = 8192
 )
 
 func NewJSONLogger(w io.Writer) *slog.Logger {
@@ -77,13 +79,18 @@ func (s *RedisServer) logCommand(state *clientState, conn net.Conn, args []strin
 			slog.String("args_sha256", hashArgs(args[1:])),
 		)
 	}
-	attrs = append(attrs, commandAnalysisAttrs(args)...)
+	attrs = append(attrs, s.sessionAnalysisAttrs(state, args, result)...)
+	attrs = append(attrs, iocAttrs(logArgs[1:])...)
 
 	s.logger.LogAttrs(context.Background(), slog.LevelInfo, "command", attrs...)
 }
 
 func (s *RedisServer) logClose(state *clientState, conn net.Conn, endedAt time.Time) {
 	attrs := s.baseLogAttrs("close", state, conn, endedAt)
+	attrs = append(attrs, slog.Int64("session_command_count", state.commands))
+	if len(state.hints) > 0 {
+		attrs = append(attrs, slog.String("session_hints", strings.Join(state.hints, " ")))
+	}
 	s.logger.LogAttrs(context.Background(), slog.LevelInfo, "close", attrs...)
 }
 
@@ -170,6 +177,11 @@ func joinArgsForLog(args []string, limit int) (string, bool) {
 			break
 		}
 		if len(arg) > remaining {
+			// Cut on a rune boundary so the log does not end in a broken
+			// UTF-8 sequence.
+			for remaining > 0 && !utf8.RuneStart(arg[remaining]) {
+				remaining--
+			}
 			builder.WriteString(arg[:remaining])
 			truncated = true
 			break
@@ -232,7 +244,43 @@ func commandOutcome(result commandResult) string {
 	}
 }
 
+// sessionAnalysisAttrs adds analysis fields that depend on what the session
+// did before: a SAVE after CONFIG SET dir/dbfilename commits a file write.
+func (s *RedisServer) sessionAnalysisAttrs(state *clientState, args []string, result commandResult) []slog.Attr {
+	attrs := commandAnalysisAttrsLimit(args, s.options.MaxLoggedPayloadBytes)
+	command := strings.ToLower(args[0])
+	succeeded := result.reply.kind != respError
+
+	switch command {
+	case "config":
+		if succeeded && len(args) >= 4 && strings.EqualFold(args[1], "set") {
+			for i := 2; i+1 < len(args); i += 2 {
+				if key := strings.ToLower(args[i]); key == "dir" || key == "dbfilename" {
+					state.writeTargetSet = true
+				}
+			}
+		}
+	case "save", "bgsave":
+		if succeeded && state.writeTargetSet && len(attrs) > 0 && attrs[0].Key == "analysis_hint" {
+			attrs[0] = slog.String("analysis_hint", "redis_write_file_commit")
+			attrs = append(attrs,
+				slog.String("target_dir", s.configValue("dir")),
+				slog.String("target_dbfilename", s.configValue("dbfilename")),
+			)
+		}
+	}
+
+	if len(attrs) > 0 && attrs[0].Key == "analysis_hint" {
+		state.addHint(attrs[0].Value.String())
+	}
+	return attrs
+}
+
 func commandAnalysisAttrs(args []string) []slog.Attr {
+	return commandAnalysisAttrsLimit(args, defaultMaxLoggedPayloadBytes)
+}
+
+func commandAnalysisAttrsLimit(args []string, payloadLimit int) []slog.Attr {
 	if len(args) == 0 {
 		return nil
 	}
@@ -246,9 +294,12 @@ func commandAnalysisAttrs(args []string) []slog.Attr {
 			attrs = append(attrs, slog.String("key", args[1]), slog.Int("key_count", 1))
 		}
 		if command == "set" && len(args) > 2 {
+			valueText, truncated := joinArgsForLog([]string{args[2]}, payloadLimit)
 			attrs = append(attrs,
 				slog.Int("value_size", len(args[2])),
 				slog.String("value_sha256", hashString(args[2])),
+				slog.String("value_text", valueText),
+				slog.Bool("value_truncated", truncated),
 			)
 		}
 	case "mget", "del", "exists":
@@ -271,7 +322,7 @@ func commandAnalysisAttrs(args []string) []slog.Attr {
 			if strings.EqualFold(args[2], "requirepass") {
 				value = "[password redacted]"
 			}
-			valueText, truncated := joinArgsForLog([]string{value}, 128)
+			valueText, truncated := joinArgsForLog([]string{value}, payloadLimit)
 			attrs = append(attrs,
 				slog.String("config_value", valueText),
 				slog.Bool("config_value_truncated", truncated),
@@ -317,7 +368,7 @@ func commandAnalysisAttrs(args []string) []slog.Attr {
 		}
 	case "eval", "eval_ro":
 		if len(args) > 1 {
-			attrs = append(attrs, scriptAttrs(args[1])...)
+			attrs = append(attrs, scriptAttrs(args[1], payloadLimit)...)
 		}
 		if len(args) > 2 {
 			if numKeys, err := strconv.Atoi(args[2]); err == nil {
@@ -330,11 +381,11 @@ func commandAnalysisAttrs(args []string) []slog.Attr {
 		}
 	case "script":
 		if len(args) > 2 && strings.EqualFold(args[1], "load") {
-			attrs = append(attrs, scriptAttrs(args[2])...)
+			attrs = append(attrs, scriptAttrs(args[2], payloadLimit)...)
 		}
 	case "function":
 		if len(args) > 2 && strings.EqualFold(args[1], "load") {
-			attrs = append(attrs, scriptAttrs(args[len(args)-1])...)
+			attrs = append(attrs, scriptAttrs(args[len(args)-1], payloadLimit)...)
 		}
 	}
 
@@ -361,9 +412,13 @@ func analysisHint(args []string) string {
 			}
 		}
 	case "set":
-		if len(args) >= 3 && strings.Contains(strings.ToLower(args[2]), "ssh-rsa") {
-			return "ssh_key_payload"
+		if len(args) >= 3 {
+			if hint := payloadHint(args[2]); hint != "" {
+				return hint
+			}
 		}
+	case "save", "bgsave":
+		return "redis_save_attempt"
 	case "slaveof", "replicaof", "psync", "sync", "replconf":
 		return "redis_replication_attempt"
 	case "module":
@@ -388,8 +443,8 @@ func analysisHint(args []string) string {
 
 // scriptAttrs describes a Lua script body; the SHA1 matches what EVALSHA
 // callers use, so script loads and later calls can be correlated.
-func scriptAttrs(body string) []slog.Attr {
-	text, truncated := joinArgsForLog([]string{body}, maxLoggedPayloadBytes)
+func scriptAttrs(body string, payloadLimit int) []slog.Attr {
+	text, truncated := joinArgsForLog([]string{body}, payloadLimit)
 	return []slog.Attr{
 		slog.String("script_sha1", scriptSHA1(body)),
 		slog.String("script_sha256", hashString(body)),
@@ -397,6 +452,25 @@ func scriptAttrs(body string) []slog.Attr {
 		slog.String("script_text", text),
 		slog.Bool("script_truncated", truncated),
 	}
+}
+
+var sshKeyMarkers = []string{"ssh-rsa ", "ssh-ed25519 ", "ssh-dss ", "ecdsa-sha2-", "sk-ssh-ed25519@", "sk-ecdsa-sha2-"}
+
+// cronLine matches a crontab entry: five schedule fields and a command.
+var cronLine = regexp.MustCompile(`(?m)^\s*(@(reboot|hourly|daily|weekly|monthly|yearly|annually)|([*0-9,/-]+\s+){4}[*0-9,/A-Za-z-]+)\s+\S`)
+
+// payloadHint classifies values written with SET, which file-write attacks use
+// to plant SSH keys or crontab entries.
+func payloadHint(value string) string {
+	for _, marker := range sshKeyMarkers {
+		if strings.Contains(value, marker) {
+			return "ssh_key_payload"
+		}
+	}
+	if cronLine.MatchString(value) {
+		return "cron_payload"
+	}
+	return ""
 }
 
 func genericAnalysisHint(command string) string {
