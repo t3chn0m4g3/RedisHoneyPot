@@ -218,27 +218,6 @@ func hashString(value string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func commandCategory(command string) string {
-	switch strings.ToUpper(command) {
-	case "GET", "MGET", "KEYS", "TYPE", "TTL", "DBSIZE":
-		return "read"
-	case "SET", "DEL", "FLUSHDB", "FLUSHALL":
-		return "write"
-	case "INFO", "CONFIG", "CLIENT", "COMMAND", "ROLE", "TIME":
-		return "recon"
-	case "SLAVEOF", "REPLICAOF", "REPLCONF", "PSYNC", "SYNC":
-		return "replication"
-	case "MODULE":
-		return "module"
-	case "AUTH":
-		return "auth"
-	case "PING", "ECHO", "SELECT", "QUIT":
-		return "session"
-	default:
-		return "unknown"
-	}
-}
-
 func responseOutcome(reply RESPValue) string {
 	if reply.kind == respError {
 		return "error"
@@ -331,10 +310,11 @@ func commandAnalysisAttrs(args []string) []slog.Attr {
 		}
 	}
 
-	if len(attrs) == 0 {
+	hint := analysisHint(args)
+	if len(attrs) == 0 && hint == genericAnalysisHint(command) {
 		return nil
 	}
-	return append([]slog.Attr{slog.String("analysis_hint", analysisHint(args))}, attrs...)
+	return append([]slog.Attr{slog.String("analysis_hint", hint)}, attrs...)
 }
 
 func analysisHint(args []string) string {
@@ -365,5 +345,9 @@ func analysisHint(args []string) string {
 	case "auth":
 		return "redis_auth_attempt"
 	}
-	return fmt.Sprintf("redis_%s", strings.ToLower(args[0]))
+	return genericAnalysisHint(args[0])
+}
+
+func genericAnalysisHint(command string) string {
+	return fmt.Sprintf("redis_%s", strings.ToLower(command))
 }

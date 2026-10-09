@@ -15,7 +15,6 @@ type RedisProfile struct {
 	Name             string
 	Version          string
 	GitSHA           string
-	BuildID          string
 	Mode             string
 	OS               string
 	ArchBits         string
@@ -25,8 +24,6 @@ type RedisProfile struct {
 	Executable       string
 	ConfigFile       string
 	Allocator        string
-	MemoryHuman      string
-	UsedMemory       string
 	TotalMemory      string
 	MaxMemoryPolicy  string
 	ModuleLine       string
@@ -50,7 +47,6 @@ func legacy6Profile() RedisProfile {
 		Name:            "legacy6",
 		Version:         "6.2.18",
 		GitSHA:          "00000000",
-		BuildID:         "b6f0c8e9dbe4a2b1",
 		Mode:            "standalone",
 		OS:              "Linux 5.4.0-196-generic x86_64",
 		ArchBits:        "64",
@@ -60,8 +56,6 @@ func legacy6Profile() RedisProfile {
 		Executable:      "/usr/bin/redis-server",
 		ConfigFile:      "/etc/redis/redis.conf",
 		Allocator:       "jemalloc-5.1.0",
-		MemoryHuman:     "1.16M",
-		UsedMemory:      "1218840",
 		TotalMemory:     "16763367424",
 		MaxMemoryPolicy: "noeviction",
 		Config: map[string]string{
@@ -89,7 +83,6 @@ func current8Profile() RedisProfile {
 		Name:             "current8",
 		Version:          "8.8.0",
 		GitSHA:           "00000000",
-		BuildID:          "9ad2a50f7c8a0ce1",
 		Mode:             "standalone",
 		OS:               "Linux 6.8.0-60-generic x86_64",
 		ArchBits:         "64",
@@ -99,8 +92,6 @@ func current8Profile() RedisProfile {
 		Executable:       "/opt/redis-stack/bin/redis-server",
 		ConfigFile:       "/etc/redis/redis.conf",
 		Allocator:        "jemalloc-5.3.0",
-		MemoryHuman:      "2.43M",
-		UsedMemory:       "2548736",
 		TotalMemory:      "33554423808",
 		MaxMemoryPolicy:  "noeviction",
 		ModuleLine:       "module:name=search,ver=80800,api=1,filters=0,usedby=[],using=[],options=[]",

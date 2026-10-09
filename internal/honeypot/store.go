@@ -1,7 +1,6 @@
 package honeypot
 
 import (
-	"path"
 	"sort"
 	"sync"
 )
@@ -75,9 +74,10 @@ func (s *Store) Keys(db int, pattern string) []string {
 		return nil
 	}
 
+	allKeys := pattern == "*"
 	keys := make([]string, 0, len(values))
 	for key := range values {
-		if matchRedisPattern(pattern, key) {
+		if allKeys || stringMatch(pattern, key, false) {
 			keys = append(keys, key)
 		}
 	}
@@ -129,15 +129,4 @@ func (s *Store) db(db int) map[string]string {
 		s.dbs[db] = values
 	}
 	return values
-}
-
-func matchRedisPattern(pattern string, key string) bool {
-	if pattern == "*" {
-		return true
-	}
-	match, err := path.Match(pattern, key)
-	if err == nil {
-		return match
-	}
-	return pattern == key
 }

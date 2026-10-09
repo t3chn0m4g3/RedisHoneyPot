@@ -30,6 +30,8 @@ func main() {
 	flag.StringVar(&profileName, "profile", honeypot.DefaultProfileName, "Redis persona: legacy6 or current8")
 	flag.DurationVar(&options.IdleTimeout, "idle-timeout", options.IdleTimeout, "connection idle timeout")
 	flag.IntVar(&options.MaxBulkBytes, "max-bulk-bytes", options.MaxBulkBytes, "maximum RESP bulk string size")
+	flag.IntVar(&options.MaxCommandBytes, "max-command-bytes", options.MaxCommandBytes, "maximum summed bulk payload of one command")
+	flag.IntVar(&options.MaxClients, "max-clients", options.MaxClients, "maximum concurrent client connections")
 	flag.StringVar(&logFilePath, "log-file", "", "optional JSONL honeypot event log file")
 	flag.Parse()
 
@@ -84,12 +86,16 @@ func main() {
 		"profile", options.Profile.Name,
 		"idle_timeout", options.IdleTimeout.String(),
 		"max_bulk_bytes", options.MaxBulkBytes,
+		"max_command_bytes", options.MaxCommandBytes,
+		"max_clients", options.MaxClients,
 	}
 	if logFilePath != "" {
 		startAttrs = append(startAttrs, "log_file", logFilePath)
 	}
 	appLogger.Info("start", startAttrs...)
 
+	// Start returns only after every connection handler has written its close
+	// event, so the deferred log file close cannot drop session events.
 	if err := server.Start(); err != nil && !errors.Is(err, net.ErrClosed) {
 		appLogger.Error("server_failed", "event", "server_failed", "error", err)
 		os.Exit(1)

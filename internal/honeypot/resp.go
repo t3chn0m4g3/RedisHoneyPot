@@ -13,9 +13,10 @@ import (
 var errEmptyCommand = errors.New("empty command")
 
 type ParserConfig struct {
-	MaxBulkBytes   int
-	MaxInlineBytes int
-	MaxArrayElems  int
+	MaxBulkBytes    int
+	MaxInlineBytes  int
+	MaxArrayElems   int
+	MaxCommandBytes int
 }
 
 type respKind int
@@ -38,12 +39,16 @@ type RESPValue struct {
 	array []RESPValue
 }
 
+// lineSafe mirrors Redis, which replaces CR and LF in status and error replies
+// with spaces so client-controlled text cannot break the reply framing.
+var lineSafe = strings.NewReplacer("\r", " ", "\n", " ")
+
 func SimpleString(value string) RESPValue {
-	return RESPValue{kind: respSimple, str: value}
+	return RESPValue{kind: respSimple, str: lineSafe.Replace(value)}
 }
 
 func ErrorReply(value string) RESPValue {
-	return RESPValue{kind: respError, str: value}
+	return RESPValue{kind: respError, str: lineSafe.Replace(value)}
 }
 
 func IntegerReply(value int64) RESPValue {
@@ -166,10 +171,13 @@ func applyParserDefaults(config *ParserConfig) {
 	if config.MaxArrayElems <= 0 {
 		config.MaxArrayElems = defaultMaxArrayElems
 	}
+	if config.MaxCommandBytes <= 0 {
+		config.MaxCommandBytes = defaultMaxCommandSize
+	}
 }
 
 func readArrayCommand(reader *bufio.Reader, config ParserConfig) ([]string, error) {
-	line, err := readLine(reader, 64)
+	line, err := readLine(reader, 64, false)
 	if err != nil {
 		return nil, err
 	}
@@ -189,8 +197,9 @@ func readArrayCommand(reader *bufio.Reader, config ParserConfig) ([]string, erro
 	}
 
 	args := make([]string, 0, count)
+	total := 0
 	for i := 0; i < count; i++ {
-		header, err := readLine(reader, 64)
+		header, err := readLine(reader, 64, false)
 		if err != nil {
 			return nil, err
 		}
@@ -204,6 +213,10 @@ func readArrayCommand(reader *bufio.Reader, config ParserConfig) ([]string, erro
 		}
 		if size > config.MaxBulkBytes {
 			return nil, fmt.Errorf("bulk string exceeds limit")
+		}
+		total += size
+		if total > config.MaxCommandBytes {
+			return nil, fmt.Errorf("command exceeds limit")
 		}
 
 		data := make([]byte, size+2)
@@ -220,7 +233,7 @@ func readArrayCommand(reader *bufio.Reader, config ParserConfig) ([]string, erro
 }
 
 func readInlineCommand(reader *bufio.Reader, config ParserConfig) ([]string, error) {
-	line, err := readLine(reader, config.MaxInlineBytes)
+	line, err := readLine(reader, config.MaxInlineBytes, true)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +247,9 @@ func readInlineCommand(reader *bufio.Reader, config ParserConfig) ([]string, err
 	return fields, nil
 }
 
-func readLine(reader *bufio.Reader, limit int) (string, error) {
+// readLine reads one protocol line. Multibulk headers require CRLF; inline
+// commands, like in Redis, accept a bare LF and drop an optional trailing CR.
+func readLine(reader *bufio.Reader, limit int, allowBareLF bool) (string, error) {
 	var buf []byte
 	for {
 		chunk, err := reader.ReadSlice('\n')
@@ -249,6 +264,13 @@ func readLine(reader *bufio.Reader, limit int) (string, error) {
 			return "", err
 		}
 		break
+	}
+	if allowBareLF {
+		line := buf[:len(buf)-1]
+		if len(line) > 0 && line[len(line)-1] == '\r' {
+			line = line[:len(line)-1]
+		}
+		return string(line), nil
 	}
 	if len(buf) < 2 || buf[len(buf)-2] != '\r' || buf[len(buf)-1] != '\n' {
 		return "", fmt.Errorf("line missing CRLF")

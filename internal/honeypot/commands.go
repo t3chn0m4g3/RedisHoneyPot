@@ -270,7 +270,7 @@ func (s *RedisServer) configGet(pattern string) RESPValue {
 
 	keys := make([]string, 0, len(s.config))
 	for key := range s.config {
-		if matchRedisPattern(strings.ToLower(pattern), strings.ToLower(key)) {
+		if stringMatch(pattern, key, true) {
 			keys = append(keys, key)
 		}
 	}
@@ -294,7 +294,7 @@ func (s *RedisServer) handleClient(state *clientState, args []string) RESPValue 
 			return wrongArity("client|setname")
 		}
 		state.name = args[2]
-		if args[2] == HealthcheckClientName {
+		if args[2] == HealthcheckClientName && state.trustedLocal {
 			state.suppressLogs = true
 		}
 		return SimpleString("OK")
@@ -369,8 +369,8 @@ func clientInfoValue(value string) string {
 
 func (s *RedisServer) handleCommandCommand(args []string) RESPValue {
 	if len(args) == 1 {
-		items := make([]RESPValue, 0, len(supportedCommandNames()))
-		for _, name := range supportedCommandNames() {
+		items := make([]RESPValue, 0, len(supportedCommands))
+		for _, name := range supportedCommands {
 			items = append(items, commandMetadata(name))
 		}
 		return Array(items...)
@@ -381,7 +381,7 @@ func (s *RedisServer) handleCommandCommand(args []string) RESPValue {
 		if len(args) != 2 {
 			return wrongArity("command|count")
 		}
-		return IntegerReply(int64(len(supportedCommandNames())))
+		return IntegerReply(int64(len(supportedCommands)))
 	case "info":
 		if len(args) < 3 {
 			return wrongArity("command|info")
@@ -409,70 +409,6 @@ func (s *RedisServer) handleCommandCommand(args []string) RESPValue {
 	default:
 		return ErrorReply("ERR unknown subcommand '" + args[1] + "'. Try COMMAND HELP.")
 	}
-}
-
-func supportedCommandNames() []string {
-	return []string{
-		"auth", "bgsave", "client", "command", "config", "dbsize", "del", "echo",
-		"exists", "flushall", "flushdb", "get", "info", "keys", "mget", "module",
-		"ping", "psync", "quit", "replconf", "replicaof", "role", "save", "select",
-		"set", "slaveof", "sync", "time", "ttl", "type",
-	}
-}
-
-func commandMetadata(name string) RESPValue {
-	metadata := map[string]struct {
-		arity int64
-		flags []string
-		first int64
-		last  int64
-		step  int64
-	}{
-		"auth":     {2, []string{"noscript", "loading", "stale", "fast"}, 0, 0, 0},
-		"bgsave":   {-1, []string{"admin", "noscript"}, 0, 0, 0},
-		"client":   {-2, []string{"admin", "noscript", "random", "loading", "stale"}, 0, 0, 0},
-		"command":  {-1, []string{"loading", "stale"}, 0, 0, 0},
-		"config":   {-2, []string{"admin", "noscript", "loading", "stale"}, 0, 0, 0},
-		"dbsize":   {1, []string{"readonly", "fast"}, 0, 0, 0},
-		"del":      {-2, []string{"write"}, 1, -1, 1},
-		"echo":     {2, []string{"fast"}, 0, 0, 0},
-		"exists":   {-2, []string{"readonly", "fast"}, 1, -1, 1},
-		"flushall": {-1, []string{"write"}, 0, 0, 0},
-		"flushdb":  {-1, []string{"write"}, 0, 0, 0},
-		"get":      {2, []string{"readonly", "fast"}, 1, 1, 1},
-		"info":     {-1, []string{"loading", "stale"}, 0, 0, 0},
-		"keys":     {2, []string{"readonly", "sort_for_script"}, 1, 1, 1},
-		"mget":     {-2, []string{"readonly", "fast"}, 1, -1, 1},
-		"module":   {-2, []string{"admin", "noscript"}, 0, 0, 0},
-		"ping":     {-1, []string{"stale", "fast"}, 0, 0, 0},
-		"psync":    {3, []string{"admin", "noscript"}, 0, 0, 0},
-		"quit":     {1, []string{"fast"}, 0, 0, 0},
-		"replconf": {-1, []string{"admin", "noscript", "loading", "stale"}, 0, 0, 0},
-		"replicaof": {3, []string{"admin", "noscript", "stale"},
-			0, 0, 0},
-		"role":    {1, []string{"noscript", "loading", "stale", "fast"}, 0, 0, 0},
-		"save":    {1, []string{"admin", "noscript"}, 0, 0, 0},
-		"select":  {2, []string{"loading", "stale", "fast"}, 0, 0, 0},
-		"set":     {-3, []string{"write", "denyoom"}, 1, 1, 1},
-		"slaveof": {3, []string{"admin", "noscript", "stale"}, 0, 0, 0},
-		"sync":    {1, []string{"admin", "noscript"}, 0, 0, 0},
-		"time":    {1, []string{"random", "fast"}, 0, 0, 0},
-		"ttl":     {2, []string{"readonly", "fast"}, 1, 1, 1},
-		"type":    {2, []string{"readonly", "fast"}, 1, 1, 1},
-	}
-
-	meta, ok := metadata[name]
-	if !ok {
-		return NilArray()
-	}
-	return Array(
-		BulkString(name),
-		IntegerReply(meta.arity),
-		BulkArray(meta.flags),
-		IntegerReply(meta.first),
-		IntegerReply(meta.last),
-		IntegerReply(meta.step),
-	)
 }
 
 func (s *RedisServer) handleModule(args []string) RESPValue {
