@@ -2,6 +2,7 @@ package honeypot
 
 import (
 	"fmt"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -11,11 +12,127 @@ import (
 type commandResult struct {
 	reply RESPValue
 	close bool
+	// silent closes the connection without any reply, like Redis does for
+	// cross-protocol (HTTP) requests.
+	silent bool
+	// noReply suppresses the reply (REPLCONF ACK from a replica).
+	noReply bool
+	// rejected marks commands refused before execution (arity, unknown
+	// subcommand); they count as rejected_calls in commandstats.
+	rejected bool
+	statName string
 }
+
+// emulatedCommands are executed by the honeypot. Commands the persona knows
+// but that are not listed here answer like an unknown command.
+var emulatedCommands = map[string]bool{
+	"auth": true, "bgsave": true, "client": true, "command": true, "config": true,
+	"dbsize": true, "debug": true, "del": true, "echo": true, "exists": true,
+	"expire": true, "flushall": true, "flushdb": true, "get": true, "hello": true,
+	"info": true, "keys": true, "lastsave": true, "mget": true, "module": true,
+	"persist": true, "pexpire": true, "ping": true, "psync": true, "pttl": true,
+	"quit": true, "replconf": true, "replicaof": true, "role": true, "save": true,
+	"scan": true, "select": true, "set": true, "slaveof": true, "sync": true,
+	"time": true, "ttl": true, "type": true,
+}
+
+func ok(reply RESPValue) commandResult {
+	return commandResult{reply: reply}
+}
+
+func rejected(reply RESPValue) commandResult {
+	return commandResult{reply: reply, rejected: true}
+}
+
+func errorf(format string, args ...any) RESPValue {
+	return ErrorReply(fmt.Sprintf(format, args...))
+}
+
+var (
+	syntaxError    = ErrorReply("ERR syntax error")
+	notIntegerErr  = ErrorReply("ERR value is not an integer or out of range")
+	readonlyErr    = ErrorReply("READONLY You can't write against a read only replica.")
+	wrongPassReply = ErrorReply("WRONGPASS invalid username-password pair or user is disabled.")
+)
 
 func (s *RedisServer) handleCommand(state *clientState, args []string) commandResult {
 	name := strings.ToLower(args[0])
 
+	// Redis treats these as cross-protocol scripting attempts and closes the
+	// connection silently (securityWarningCommand).
+	if name == "post" || name == "host:" {
+		return commandResult{reply: RawReply(""), silent: true, close: true}
+	}
+
+	// Before Redis 7 QUIT is handled ahead of the command table lookup.
+	if name == "quit" {
+		return commandResult{reply: SimpleString("OK"), close: true, statName: s.statNameFor("quit")}
+	}
+
+	entry, known := s.profile.data.commands[name]
+	if !known || !emulatedCommands[name] {
+		return rejected(s.unknownCommand(args))
+	}
+	if !arityOK(entry.arity, len(args)) {
+		result := rejected(wrongArity(name))
+		result.statName = s.rejectedStatName(name)
+		return result
+	}
+
+	statName := name
+	if len(entry.subcommands) > 0 && len(args) >= 2 {
+		sub := name + "|" + strings.ToLower(args[1])
+		subEntry, found := entry.subcommands[sub]
+		if !found {
+			return rejected(errorf("ERR unknown subcommand '%s'. Try %s HELP.", truncateBytes(args[1], 128), strings.ToUpper(name)))
+		}
+		if !arityOK(subEntry.arity, len(args)) {
+			result := rejected(wrongArity(sub))
+			result.statName = s.rejectedStatName(sub)
+			return result
+		}
+		statName = sub
+	}
+
+	if entry.flags["write"] && s.isReadOnlyReplica() {
+		result := ok(readonlyErr)
+		result.statName = statName
+		return result
+	}
+
+	result := s.execute(state, name, args)
+	if result.statName == "" {
+		result.statName = statName
+	}
+	return result
+}
+
+// arityOK applies Redis' check: positive arity is exact, negative is a
+// minimum, and 0 (Redis 5's COMMAND) accepts anything.
+func arityOK(arity int64, argc int) bool {
+	if arity > 0 {
+		return int64(argc) == arity
+	}
+	return int64(argc) >= -arity
+}
+
+// rejectedStatName returns where a rejected call is counted; rejected_calls
+// exist in commandstats since Redis 6.2.
+func (s *RedisServer) rejectedStatName(name string) string {
+	if s.profile.atLeast(6, 2) {
+		return name
+	}
+	return ""
+}
+
+func (s *RedisServer) statNameFor(name string) string {
+	if _, known := s.profile.data.commands[name]; known {
+		return name
+	}
+	return ""
+}
+
+func (s *RedisServer) execute(state *clientState, name string, args []string) commandResult {
 	switch name {
 	case "ping":
 		if len(args) == 1 {
@@ -26,272 +143,613 @@ func (s *RedisServer) handleCommand(state *clientState, args []string) commandRe
 		}
 		return ok(wrongArity(name))
 	case "echo":
-		if len(args) != 2 {
-			return ok(wrongArity(name))
-		}
 		return ok(BulkString(args[1]))
 	case "auth":
-		if len(args) != 2 && len(args) != 3 {
-			return ok(wrongArity(name))
-		}
-		return ok(SimpleString("OK"))
-	case "quit":
-		if len(args) != 1 {
-			return ok(wrongArity(name))
-		}
-		return commandResult{reply: SimpleString("OK"), close: true}
+		return ok(s.handleAuth(args))
+	case "hello":
+		return ok(s.handleHello(state, args))
 	case "info":
-		if len(args) > 2 {
-			return ok(wrongArity(name))
-		}
-		section := ""
-		if len(args) == 2 {
-			section = args[1]
-		}
-		return ok(BulkString(s.info(section)))
+		return ok(s.handleInfo(state, args[1:]))
 	case "set":
-		if len(args) < 3 {
-			return ok(wrongArity(name))
-		}
-		s.store.Set(state.db, args[1], args[2])
-		s.runtime.markDirty(1)
-		return ok(SimpleString("OK"))
+		return ok(s.handleSet(state, args))
 	case "get":
-		if len(args) != 2 {
-			return ok(wrongArity(name))
-		}
-		value, exists := s.store.Get(state.db, args[1])
-		if exists {
-			s.keyspaceHits.Add(1)
-			return ok(BulkString(value))
-		}
-		s.keyspaceMisses.Add(1)
-		return ok(NilBulkString())
+		return ok(s.lookupString(state, args[1]))
 	case "mget":
-		if len(args) < 2 {
-			return ok(wrongArity(name))
-		}
 		items := make([]RESPValue, 0, len(args)-1)
 		for _, key := range args[1:] {
-			value, exists := s.store.Get(state.db, key)
-			if exists {
-				s.keyspaceHits.Add(1)
-				items = append(items, BulkString(value))
-			} else {
-				s.keyspaceMisses.Add(1)
-				items = append(items, NilBulkString())
-			}
+			items = append(items, s.lookupString(state, key))
 		}
 		return ok(Array(items...))
 	case "del":
-		if len(args) < 2 {
-			return ok(wrongArity(name))
-		}
 		deleted := s.store.Del(state.db, args[1:])
 		s.runtime.markDirty(int64(deleted))
 		return ok(IntegerReply(int64(deleted)))
 	case "exists":
-		if len(args) < 2 {
-			return ok(wrongArity(name))
-		}
 		return ok(IntegerReply(int64(s.store.Exists(state.db, args[1:]))))
 	case "keys":
-		if len(args) != 2 {
-			return ok(wrongArity(name))
-		}
 		return ok(BulkArray(s.store.Keys(state.db, args[1])))
+	case "scan":
+		return ok(s.handleScan(state, args))
 	case "type":
-		if len(args) != 2 {
-			return ok(wrongArity(name))
-		}
 		if _, exists := s.store.Get(state.db, args[1]); exists {
 			return ok(SimpleString("string"))
 		}
 		return ok(SimpleString("none"))
-	case "ttl":
-		if len(args) != 2 {
-			return ok(wrongArity(name))
-		}
-		if _, exists := s.store.Get(state.db, args[1]); exists {
+	case "ttl", "pttl":
+		remaining, exists, hasTTL := s.store.TTL(state.db, args[1])
+		switch {
+		case !exists:
+			return ok(IntegerReply(-2))
+		case !hasTTL:
 			return ok(IntegerReply(-1))
+		case name == "pttl":
+			return ok(IntegerReply(remaining.Milliseconds()))
+		default:
+			return ok(IntegerReply((remaining.Milliseconds() + 500) / 1000))
 		}
-		return ok(IntegerReply(-2))
-	case "flushall":
-		if len(args) > 2 {
-			return ok(wrongArity(name))
+	case "expire", "pexpire":
+		return ok(s.handleExpire(state, name, args))
+	case "persist":
+		if s.store.Persist(state.db, args[1]) {
+			return ok(IntegerReply(1))
 		}
-		s.runtime.markDirty(int64(s.store.FlushAll()))
-		return ok(SimpleString("OK"))
-	case "flushdb":
-		if len(args) > 2 {
-			return ok(wrongArity(name))
+		return ok(IntegerReply(0))
+	case "flushall", "flushdb":
+		if len(args) > 2 || (len(args) == 2 && !strings.EqualFold(args[1], "async") && !strings.EqualFold(args[1], "sync")) {
+			return ok(syntaxError)
 		}
-		s.runtime.markDirty(int64(s.store.FlushDB(state.db)))
+		var flushed int
+		if name == "flushall" {
+			flushed = s.store.FlushAll()
+		} else {
+			flushed = s.store.FlushDB(state.db)
+		}
+		s.runtime.markDirty(int64(flushed))
 		return ok(SimpleString("OK"))
 	case "save":
-		if len(args) != 1 {
-			return ok(wrongArity(name))
-		}
 		s.runtime.markSaved()
 		return ok(SimpleString("OK"))
 	case "bgsave":
-		if len(args) > 2 {
-			return ok(wrongArity(name))
+		if len(args) == 2 && !strings.EqualFold(args[1], "schedule") {
+			return ok(syntaxError)
 		}
 		s.runtime.markSaved()
 		return ok(SimpleString("Background saving started"))
+	case "lastsave":
+		return ok(IntegerReply(s.runtime.rdbLastSaveTime.Load()))
 	case "select":
-		if len(args) != 2 {
-			return ok(wrongArity(name))
-		}
 		db, err := strconv.Atoi(args[1])
-		if err != nil || db < 0 || db > 15 {
+		if err != nil {
+			return ok(notIntegerErr)
+		}
+		databases, _ := strconv.Atoi(s.configValue("databases"))
+		if databases <= 0 {
+			databases = 16
+		}
+		if db < 0 || db >= databases {
 			return ok(ErrorReply("ERR DB index is out of range"))
 		}
 		state.db = db
 		return ok(SimpleString("OK"))
 	case "dbsize":
-		if len(args) != 1 {
-			return ok(wrongArity(name))
-		}
 		return ok(IntegerReply(int64(s.store.Size(state.db))))
 	case "config":
-		return ok(s.handleConfig(args))
+		return ok(s.handleConfig(state, args))
 	case "client":
 		return ok(s.handleClient(state, args))
 	case "command":
 		return ok(s.handleCommandCommand(args))
+	case "module":
+		return ok(s.handleModule(state, args))
+	case "debug":
+		return ok(s.handleDebug(state, args))
 	case "role":
-		if len(args) != 1 {
-			return ok(wrongArity(name))
-		}
-		return ok(Array(BulkString("master"), IntegerReply(0), Array()))
+		return ok(s.handleRole())
 	case "time":
-		if len(args) != 1 {
-			return ok(wrongArity(name))
-		}
 		now := time.Now()
 		return ok(Array(
 			BulkString(strconv.FormatInt(now.Unix(), 10)),
 			BulkString(strconv.FormatInt(int64(now.Nanosecond()/1000), 10)),
 		))
 	case "slaveof", "replicaof":
-		if len(args) != 3 {
-			return ok(wrongArity(name))
-		}
-		return ok(SimpleString("OK"))
+		return ok(s.handleReplicaOf(args))
 	case "replconf":
-		if len(args) < 2 {
-			return ok(wrongArity(name))
+		if strings.EqualFold(args[1], "ack") || strings.EqualFold(args[1], "fack") {
+			return commandResult{noReply: true}
 		}
 		return ok(SimpleString("OK"))
-	case "psync":
-		if len(args) != 3 {
-			return ok(wrongArity(name))
-		}
-		return ok(RawReply("+FULLRESYNC " + s.runtime.masterReplID + " 0\r\n$0\r\n\r\n"))
-	case "sync":
-		if len(args) != 1 {
-			return ok(wrongArity(name))
-		}
-		return ok(RawReply("+FULLRESYNC " + s.runtime.masterReplID + " 0\r\n$0\r\n\r\n"))
-	case "module":
-		return ok(s.handleModule(args))
+	case "psync", "sync":
+		return ok(s.handleSync(state, name))
 	default:
-		return ok(unknownCommand(args))
+		return rejected(s.unknownCommand(args))
 	}
 }
 
-func ok(reply RESPValue) commandResult {
-	return commandResult{reply: reply}
+func (s *RedisServer) lookupString(state *clientState, key string) RESPValue {
+	value, exists := s.store.Get(state.db, key)
+	if exists {
+		s.keyspaceHits.Add(1)
+		return BulkString(value)
+	}
+	s.keyspaceMisses.Add(1)
+	return NilBulkString()
 }
 
 func wrongArity(command string) RESPValue {
 	return ErrorReply("ERR wrong number of arguments for '" + strings.ToLower(command) + "' command")
 }
 
-func unknownCommand(args []string) RESPValue {
-	if len(args) == 1 {
-		return ErrorReply("ERR unknown command '" + args[0] + "', with args beginning with:")
+// truncateBytes mirrors printf's "%.Ns" on C strings (bytes, not runes).
+func truncateBytes(value string, limit int) string {
+	if len(value) > limit {
+		return value[:limit]
 	}
-	preview, _ := joinArgsForLog(args[1:], 128)
-	return ErrorReply("ERR unknown command '" + args[0] + "', with args beginning with: " + preview)
+	return value
 }
 
-func (s *RedisServer) handleConfig(args []string) RESPValue {
+func (s *RedisServer) unknownCommand(args []string) RESPValue {
+	var preview strings.Builder
+	if !s.profile.modernErrors() {
+		for i := 1; i < len(args) && preview.Len() < 128; i++ {
+			fmt.Fprintf(&preview, "`%s`, ", truncateBytes(args[i], 128-preview.Len()))
+		}
+		return errorf("ERR unknown command `%s`, with args beginning with: %s", args[0], preview.String())
+	}
+	if len(args) == 1 && !s.profile.isValkey() && s.profile.atLeast(8, 0) {
+		return errorf("ERR unknown command '%s'", truncateBytes(args[0], 128))
+	}
+	for i := 1; i < len(args) && preview.Len() < 128; i++ {
+		fmt.Fprintf(&preview, "'%s' ", truncateBytes(args[i], 128-preview.Len()))
+	}
+	return errorf("ERR unknown command '%s', with args beginning with: %s", truncateBytes(args[0], 128), preview.String())
+}
+
+// legacySubcommandError is the pre-7.0 reply for unknown subcommands and for
+// subcommands with the wrong number of arguments.
+func (s *RedisServer) legacySubcommandError(sub string, command string) RESPValue {
+	dot := "."
+	if command == "CLIENT" && !s.profile.atLeast(6, 0) {
+		dot = ""
+	}
+	return errorf("ERR Unknown subcommand or wrong number of arguments for '%s'. Try %s HELP%s", sub, command, dot)
+}
+
+func (s *RedisServer) subcommandError(sub string, command string) RESPValue {
+	if s.profile.modernErrors() {
+		return errorf("ERR unknown subcommand '%s'. Try %s HELP.", truncateBytes(sub, 128), command)
+	}
+	return s.legacySubcommandError(sub, command)
+}
+
+func (s *RedisServer) handleAuth(args []string) RESPValue {
+	password := s.configValue("requirepass")
+	if !s.profile.atLeast(6, 0) {
+		if password == "" {
+			return ErrorReply("ERR Client sent AUTH, but no password is set")
+		}
+		// A honeypot accepts any password so the session continues.
+		return SimpleString("OK")
+	}
+	if len(args) > 3 {
+		return syntaxError
+	}
+	if len(args) == 3 {
+		if args[1] != "default" {
+			return wrongPassReply
+		}
+		return SimpleString("OK")
+	}
+	if password == "" {
+		return ErrorReply("ERR AUTH <password> called without any password configured for the default user. Are you sure your configuration is correct?")
+	}
+	return SimpleString("OK")
+}
+
+func (s *RedisServer) handleHello(state *clientState, args []string) RESPValue {
+	proto := state.proto
+	if len(args) >= 2 {
+		version, err := strconv.ParseInt(args[1], 10, 64)
+		if err != nil {
+			return ErrorReply("ERR Protocol version is not an integer or out of range")
+		}
+		if version < 2 || version > 3 {
+			return ErrorReply("NOPROTO unsupported protocol version")
+		}
+		proto = int(version)
+	}
+
+	name := state.name
+	for i := 2; i < len(args); i++ {
+		switch strings.ToLower(args[i]) {
+		case "auth":
+			if i+2 >= len(args) {
+				return errorf("ERR Syntax error in HELLO option '%s'", args[i])
+			}
+			if args[i+1] != "default" {
+				return wrongPassReply
+			}
+			i += 2
+		case "setname":
+			if i+1 >= len(args) {
+				return errorf("ERR Syntax error in HELLO option '%s'", args[i])
+			}
+			if !validClientName(args[i+1]) {
+				return ErrorReply("ERR Client names cannot contain spaces, newlines or special characters.")
+			}
+			name = args[i+1]
+			i++
+		default:
+			return errorf("ERR Syntax error in HELLO option '%s'", args[i])
+		}
+	}
+	state.proto = proto
+	state.name = name
+
+	role := "master"
+	if s.isReplica() {
+		role = "replica"
+	}
+	return Map(
+		BulkString("server"), BulkString(s.profile.Flavor),
+		BulkString("version"), BulkString(s.profile.Version),
+		BulkString("proto"), IntegerReply(int64(proto)),
+		BulkString("id"), IntegerReply(int64(state.id)),
+		BulkString("mode"), BulkString("standalone"),
+		BulkString("role"), BulkString(role),
+		BulkString("modules"), s.moduleList(),
+	)
+}
+
+func (s *RedisServer) handleSet(state *clientState, args []string) RESPValue {
+	var nx, xx, get, keepTTL bool
+	var expireAt time.Time
+	expireSet := false
+	modern := s.profile.atLeast(6, 2)
+
+	for i := 3; i < len(args); i++ {
+		option := strings.ToUpper(args[i])
+		switch {
+		case option == "NX" && !xx && (!get || s.profile.atLeast(7, 0)):
+			nx = true
+		case option == "XX" && !nx:
+			xx = true
+		case option == "GET" && modern && (!nx || s.profile.atLeast(7, 0)):
+			get = true
+		case option == "KEEPTTL" && s.profile.atLeast(6, 0) && !expireSet:
+			keepTTL = true
+		case (option == "EX" || option == "PX" || (modern && (option == "EXAT" || option == "PXAT"))) && !expireSet && !keepTTL && i+1 < len(args):
+			amount, err := strconv.ParseInt(args[i+1], 10, 64)
+			if err != nil {
+				return notIntegerErr
+			}
+			if amount <= 0 {
+				if s.profile.modernErrors() {
+					return ErrorReply("ERR invalid expire time in 'set' command")
+				}
+				return ErrorReply("ERR invalid expire time in set")
+			}
+			switch option {
+			case "EX":
+				expireAt = time.Now().Add(time.Duration(amount) * time.Second)
+			case "PX":
+				expireAt = time.Now().Add(time.Duration(amount) * time.Millisecond)
+			case "EXAT":
+				expireAt = time.Unix(amount, 0)
+			case "PXAT":
+				expireAt = time.UnixMilli(amount)
+			}
+			expireSet = true
+			i++
+		default:
+			return syntaxError
+		}
+	}
+
+	old, exists := s.store.Get(state.db, args[1])
+	oldReply := NilBulkString()
+	if exists {
+		oldReply = BulkString(old)
+	}
+	if (nx && exists) || (xx && !exists) {
+		if get {
+			return oldReply
+		}
+		return NilBulkString()
+	}
+
+	s.store.SetWithExpiry(state.db, args[1], args[2], expireAt, keepTTL)
+	s.runtime.markDirty(1)
+	if get {
+		return oldReply
+	}
+	return SimpleString("OK")
+}
+
+func (s *RedisServer) handleExpire(state *clientState, name string, args []string) RESPValue {
+	amount, err := strconv.ParseInt(args[2], 10, 64)
+	if err != nil {
+		return notIntegerErr
+	}
+	if len(args) > 3 {
+		if !s.profile.atLeast(7, 0) {
+			return wrongArity(name)
+		}
+		for _, option := range args[3:] {
+			switch strings.ToUpper(option) {
+			case "NX", "XX", "GT", "LT":
+			default:
+				return errorf("ERR Unsupported option %s", option)
+			}
+		}
+	}
+	unit := time.Second
+	if name == "pexpire" {
+		unit = time.Millisecond
+	}
+	if s.store.Expire(state.db, args[1], time.Now().Add(time.Duration(amount)*unit)) {
+		return IntegerReply(1)
+	}
+	return IntegerReply(0)
+}
+
+func (s *RedisServer) handleScan(state *clientState, args []string) RESPValue {
+	if _, err := strconv.ParseUint(args[1], 10, 64); err != nil {
+		return ErrorReply("ERR invalid cursor")
+	}
+	pattern := "*"
+	typeFilter := ""
+	for i := 2; i < len(args); i++ {
+		if i+1 >= len(args) {
+			return syntaxError
+		}
+		switch strings.ToUpper(args[i]) {
+		case "MATCH":
+			pattern = args[i+1]
+		case "COUNT":
+			count, err := strconv.ParseInt(args[i+1], 10, 64)
+			if err != nil {
+				return notIntegerErr
+			}
+			if count < 1 {
+				return syntaxError
+			}
+		case "TYPE":
+			typeFilter = strings.ToLower(args[i+1])
+		default:
+			return syntaxError
+		}
+		i++
+	}
+	keys := s.store.Keys(state.db, pattern)
+	if typeFilter != "" && typeFilter != "string" {
+		keys = nil
+	}
+	return Array(BulkString("0"), BulkArray(keys))
+}
+
+func (s *RedisServer) configValue(key string) string {
+	s.configMu.RLock()
+	defer s.configMu.RUnlock()
+	return s.config[key]
+}
+
+func (s *RedisServer) handleConfig(state *clientState, args []string) RESPValue {
+	modern := s.profile.modernErrors()
 	if len(args) < 2 {
 		return wrongArity("config")
 	}
 
 	switch strings.ToLower(args[1]) {
 	case "get":
-		if len(args) != 3 {
-			return ErrorReply("ERR Unknown subcommand or wrong number of arguments for 'get'. Try CONFIG HELP.")
+		if !modern && len(args) != 3 {
+			return s.legacySubcommandError(args[1], "CONFIG")
 		}
-		return s.configGet(args[2])
+		return s.configGet(args[2:])
 	case "set":
-		if len(args) != 4 {
-			return ErrorReply("ERR Unknown subcommand or wrong number of arguments for 'set'. Try CONFIG HELP.")
+		if !modern && len(args) != 4 {
+			return s.legacySubcommandError(args[1], "CONFIG")
 		}
-		key := strings.ToLower(args[2])
-		s.configMu.Lock()
-		s.config[key] = args[3]
-		s.configMu.Unlock()
-		return SimpleString("OK")
+		if len(args)%2 != 0 {
+			return wrongArity("config|set")
+		}
+		return s.configSet(state, args[2:])
 	case "rewrite":
-		if len(args) != 2 {
-			return ErrorReply("ERR Unknown subcommand or wrong number of arguments for 'rewrite'. Try CONFIG HELP.")
+		if s.profile.ConfigFile == "" {
+			return ErrorReply("ERR The server is running without a config file")
 		}
 		return SimpleString("OK")
 	case "resetstat":
-		if len(args) != 2 {
-			return ErrorReply("ERR Unknown subcommand or wrong number of arguments for 'resetstat'. Try CONFIG HELP.")
-		}
 		s.keyspaceHits.Store(0)
 		s.keyspaceMisses.Store(0)
 		s.protocolErrors.Store(0)
+		s.stats.reset()
 		return SimpleString("OK")
 	case "help":
-		return BulkArray([]string{
-			"CONFIG GET <pattern>",
-			"CONFIG SET <directive> <value>",
-			"CONFIG RESETSTAT",
-			"CONFIG REWRITE",
-			"CONFIG HELP",
-		})
+		return BulkArray(configHelp)
 	default:
-		return ErrorReply("ERR Unknown subcommand or wrong number of arguments for '" + args[1] + "'. Try CONFIG HELP.")
+		return s.subcommandError(args[1], "CONFIG")
 	}
 }
 
-func (s *RedisServer) configGet(pattern string) RESPValue {
+var configHelp = []string{
+	"CONFIG <subcommand> [<arg> [value] [opt] ...]. Subcommands are:",
+	"GET <pattern>",
+	"    Return parameters matching the glob-like <pattern> and their values.",
+	"SET <directive> <value>",
+	"    Set the configuration <directive> to <value>.",
+	"RESETSTAT",
+	"    Reset statistics reported by the INFO command.",
+	"REWRITE",
+	"    Rewrite the configuration file.",
+	"HELP",
+	"    Print this help.",
+}
+
+func (s *RedisServer) configGet(patterns []string) RESPValue {
 	s.configMu.RLock()
 	defer s.configMu.RUnlock()
 
-	keys := make([]string, 0, len(s.config))
-	for key := range s.config {
-		if stringMatch(pattern, key, true) {
-			keys = append(keys, key)
+	// Redis returns matches sorted; Valkey groups them by pattern order.
+	seen := make(map[string]bool)
+	var keys []string
+	for _, pattern := range patterns {
+		var group []string
+		for key := range s.config {
+			if !seen[key] && stringMatch(pattern, key, true) {
+				seen[key] = true
+				group = append(group, key)
+			}
 		}
+		sort.Strings(group)
+		keys = append(keys, group...)
 	}
-	sort.Strings(keys)
+	if !s.profile.isValkey() {
+		sort.Strings(keys)
+	}
 
 	items := make([]RESPValue, 0, len(keys)*2)
 	for _, key := range keys {
 		items = append(items, BulkString(key), BulkString(s.config[key]))
 	}
-	return Array(items...)
+	return Map(items...)
+}
+
+var immutableConfigs = map[string]bool{
+	"daemonize": true, "databases": true, "logfile": true, "pidfile": true,
+	"supervised": true, "unixsocket": true, "unixsocketperm": true, "aclfile": true,
+	"io-threads": true, "cluster-enabled": true, "cluster-config-file": true,
+	"appenddirname": true, "enable-protected-configs": true, "enable-module-command": true,
+	"enable-debug-command": true, "syslog-enabled": true, "syslog-ident": true,
+	"syslog-facility": true, "always-show-logo": true, "set-proc-title": true,
+}
+
+var protectedConfigs = map[string]bool{"dir": true, "dbfilename": true}
+
+// configSet validates all pairs first, then applies them, matching Redis'
+// all-or-nothing CONFIG SET.
+func (s *RedisServer) configSet(state *clientState, pairs []string) RESPValue {
+	modern := s.profile.modernErrors()
+	updates := make(map[string]string, len(pairs)/2)
+
+	s.configMu.RLock()
+	currentDir := s.config["dir"]
+	protectedMode := s.config["enable-protected-configs"]
+	s.configMu.RUnlock()
+
+	for i := 0; i+1 < len(pairs); i += 2 {
+		key, value := strings.ToLower(pairs[i]), pairs[i+1]
+		failed := func(reason string) RESPValue {
+			return errorf("ERR CONFIG SET failed (possibly related to argument '%s') - %s", key, reason)
+		}
+
+		s.configMu.RLock()
+		_, known := s.config[key]
+		s.configMu.RUnlock()
+		if !known || (!modern && immutableConfigs[key]) {
+			if modern {
+				return errorf("ERR Unknown option or number of arguments for CONFIG SET - '%s'", key)
+			}
+			return errorf("ERR Unsupported CONFIG parameter: %s", key)
+		}
+		if _, dup := updates[key]; dup {
+			return failed("duplicate parameter")
+		}
+		if modern && immutableConfigs[key] {
+			return failed("can't set immutable config")
+		}
+		if modern && protectedConfigs[key] && !(protectedMode == "yes" || (protectedMode == "local" && state.trustedLocal)) {
+			return failed("can't set protected config")
+		}
+
+		switch key {
+		case "dir":
+			target := value
+			if !path.IsAbs(target) {
+				target = path.Join(currentDir, target)
+			}
+			target = path.Clean(target)
+			if !fakeDirExists(target, currentDir) {
+				if modern {
+					return failed("No such file or directory")
+				}
+				return ErrorReply("ERR Changing directory: No such file or directory")
+			}
+			value = target
+		case "dbfilename":
+			if strings.Contains(value, "/") {
+				switch {
+				case modern:
+					return failed("dbfilename can't be a path, just a filename")
+				case s.profile.atLeast(6, 0):
+					return errorf("ERR Invalid argument '%s' for CONFIG SET 'dbfilename' - dbfilename can't be a path, just a filename", value)
+				default:
+					return ErrorReply("ERR dbfilename can't be a path, just a filename")
+				}
+			}
+		}
+		updates[key] = value
+	}
+
+	s.configMu.Lock()
+	for key, value := range updates {
+		s.config[key] = value
+	}
+	s.configMu.Unlock()
+	return SimpleString("OK")
+}
+
+// fakeDirs are directories a typical Linux host has; CONFIG SET dir accepts
+// them so file-write attacks proceed, and rejects random paths like Redis.
+var fakeDirs = func() map[string]bool {
+	dirs := map[string]bool{}
+	for _, dir := range []string{
+		"/", "/bin", "/boot", "/data", "/dev", "/dev/shm", "/etc", "/etc/cron.d",
+		"/etc/cron.daily", "/etc/cron.hourly", "/etc/cron.monthly", "/etc/cron.weekly",
+		"/etc/init.d", "/etc/profile.d", "/etc/redis", "/etc/ssh", "/etc/systemd/system",
+		"/home", "/lib", "/media", "/mnt", "/opt", "/proc", "/root", "/root/.ssh",
+		"/run", "/sbin", "/srv", "/sys", "/tmp", "/usr", "/usr/bin", "/usr/lib",
+		"/usr/local", "/usr/local/bin", "/usr/local/lib", "/usr/sbin", "/usr/share",
+		"/usr/share/nginx", "/usr/share/nginx/html", "/var", "/var/backups", "/var/cache",
+		"/var/lib", "/var/lib/redis", "/var/lib/redis/6379", "/var/log", "/var/log/redis",
+		"/var/mail", "/var/opt", "/var/run", "/var/run/redis", "/var/spool",
+		"/var/spool/cron", "/var/spool/cron/crontabs", "/var/tmp", "/var/www", "/var/www/html",
+	} {
+		dirs[dir] = true
+	}
+	for _, user := range []string{"admin", "centos", "debian", "deploy", "ec2-user", "git", "oracle", "pi", "postgres", "redis", "test", "ubuntu", "user"} {
+		dirs["/home/"+user] = true
+		dirs["/home/"+user+"/.ssh"] = true
+	}
+	return dirs
+}()
+
+func fakeDirExists(dir string, configured string) bool {
+	return fakeDirs[dir] || dir == configured
+}
+
+func validClientName(name string) bool {
+	for i := 0; i < len(name); i++ {
+		if name[i] < '!' || name[i] > '~' {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *RedisServer) handleClient(state *clientState, args []string) RESPValue {
 	if len(args) < 2 {
 		return wrongArity("client")
 	}
+	modern := s.profile.modernErrors()
+	legacy := func() RESPValue { return s.legacySubcommandError(args[1], "CLIENT") }
 
 	switch strings.ToLower(args[1]) {
 	case "setname":
 		if len(args) != 3 {
-			return wrongArity("client|setname")
+			return legacy()
+		}
+		if !validClientName(args[2]) {
+			return ErrorReply("ERR Client names cannot contain spaces, newlines or special characters.")
 		}
 		state.name = args[2]
 		if args[2] == HealthcheckClientName && state.trustedLocal {
@@ -299,19 +757,21 @@ func (s *RedisServer) handleClient(state *clientState, args []string) RESPValue 
 		}
 		return SimpleString("OK")
 	case "setinfo":
-		if len(args) != 4 {
-			return wrongArity("client|setinfo")
+		if !s.profile.atLeast(7, 2) {
+			return legacy()
 		}
 		switch strings.ToLower(args[2]) {
 		case "lib-name":
 			state.libName = args[3]
 		case "lib-ver":
 			state.libVersion = args[3]
+		default:
+			return errorf("ERR Unrecognized option '%s'", args[2])
 		}
 		return SimpleString("OK")
 	case "getname":
 		if len(args) != 2 {
-			return wrongArity("client|getname")
+			return legacy()
 		}
 		if state.name == "" {
 			return NilBulkString()
@@ -319,141 +779,205 @@ func (s *RedisServer) handleClient(state *clientState, args []string) RESPValue 
 		return BulkString(state.name)
 	case "id":
 		if len(args) != 2 {
-			return wrongArity("client|id")
+			return legacy()
 		}
 		return IntegerReply(int64(state.id))
 	case "info":
-		if len(args) != 2 {
-			return wrongArity("client|info")
+		if !s.profile.atLeast(6, 2) || len(args) != 2 {
+			return legacy()
 		}
-		return BulkString(s.clientInfo(state))
+		return VerbatimText(s.clientInfoLine(state, "info"))
 	case "list":
-		if len(args) != 2 {
-			return wrongArity("client|list")
+		return VerbatimText(s.clientInfoLine(state, "list"))
+	case "kill":
+		if len(args) == 3 {
+			return ErrorReply("ERR No such client")
 		}
-		return BulkString(s.clientInfo(state))
+		return IntegerReply(0)
 	case "help":
 		return BulkArray([]string{
-			"CLIENT ID",
-			"CLIENT INFO",
-			"CLIENT LIST",
-			"CLIENT GETNAME",
-			"CLIENT SETNAME <connection-name>",
-			"CLIENT SETINFO <attribute> <value>",
-			"CLIENT HELP",
+			"CLIENT <subcommand> [<arg> [value] [opt] ...]. Subcommands are:",
+			"GETNAME",
+			"    Return the name of the current connection.",
+			"ID",
+			"    Return the ID of the current connection.",
+			"INFO",
+			"    Return information about the current client connection.",
+			"LIST [options ...]",
+			"    Return information about client connections.",
+			"SETNAME <connection-name>",
+			"    Assign the name <connection-name> to the current connection.",
+			"HELP",
+			"    Print this help.",
 		})
 	default:
-		return ErrorReply("ERR unknown subcommand '" + args[1] + "'. Try CLIENT HELP.")
+		if modern {
+			// The subcommand is known to this persona (checked in
+			// handleCommand) but not emulated in detail.
+			return SimpleString("OK")
+		}
+		return legacy()
 	}
-}
-
-func (s *RedisServer) clientInfo(state *clientState) string {
-	age := int(time.Since(state.connected).Seconds())
-	return fmt.Sprintf("id=%d addr=0.0.0.0:0 laddr=%s fd=8 name=%s age=%d idle=0 flags=N db=%d sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=20474 argv-mem=0 obl=0 oll=0 omem=0 tot-mem=37632 events=r cmd=client user=default redir=-1 resp=2 lib-name=%s lib-ver=%s\r\n",
-		state.id,
-		s.listener.Addr().String(),
-		clientInfoValue(state.name),
-		age,
-		state.db,
-		clientInfoValue(state.libName),
-		clientInfoValue(state.libVersion),
-	)
-}
-
-func clientInfoValue(value string) string {
-	if value == "" {
-		return ""
-	}
-	return strings.NewReplacer(" ", "_", "\r", "", "\n", "").Replace(value)
 }
 
 func (s *RedisServer) handleCommandCommand(args []string) RESPValue {
+	data := s.profile.data
 	if len(args) == 1 {
-		items := make([]RESPValue, 0, len(supportedCommands))
-		for _, name := range supportedCommands {
-			items = append(items, commandMetadata(name))
-		}
-		return Array(items...)
+		return RawReply(string(data.commandsRaw))
 	}
+	modern := s.profile.modernErrors()
 
 	switch strings.ToLower(args[1]) {
 	case "count":
 		if len(args) != 2 {
-			return wrongArity("command|count")
+			return s.subcommandError(args[1], "COMMAND")
 		}
-		return IntegerReply(int64(len(supportedCommands)))
+		return IntegerReply(int64(len(data.commands)))
 	case "info":
-		if len(args) < 3 {
-			return wrongArity("command|info")
+		if len(args) == 2 && modern {
+			return RawReply(string(data.commandsRaw))
 		}
-		items := make([]RESPValue, 0, len(args)-2)
+		if len(args) == 2 {
+			return s.subcommandError(args[1], "COMMAND")
+		}
+		var raw strings.Builder
+		fmt.Fprintf(&raw, "*%d\r\n", len(args)-2)
 		for _, name := range args[2:] {
-			meta := commandMetadata(strings.ToLower(name))
-			if meta.kind == respNilArray {
-				items = append(items, NilArray())
+			if entry, found := s.lookupCommandEntry(name); found {
+				raw.Write(entry.raw)
 			} else {
-				items = append(items, meta)
+				raw.WriteString("$-1\r\n")
 			}
 		}
-		return Array(items...)
+		return RawReply(raw.String())
 	case "docs":
-		return Array()
+		if data.docs == nil {
+			return s.subcommandError(args[1], "COMMAND")
+		}
+		if len(args) == 2 {
+			return RawReply(string(data.docsRaw))
+		}
+		var body strings.Builder
+		found := 0
+		for _, name := range args[2:] {
+			if pair, ok := data.docs[strings.ToLower(name)]; ok {
+				body.Write(pair)
+				found++
+			}
+		}
+		return RawReply(fmt.Sprintf("*%d\r\n", found*2) + body.String())
+	case "list":
+		if !modern {
+			return s.subcommandError(args[1], "COMMAND")
+		}
+		names := make([]string, 0, len(data.commands))
+		for name := range data.commands {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		return BulkArray(names)
 	case "help":
 		return BulkArray([]string{
-			"COMMAND",
-			"COMMAND COUNT",
-			"COMMAND INFO <command-name> [command-name ...]",
-			"COMMAND DOCS [command-name ...]",
-			"COMMAND HELP",
+			"COMMAND <subcommand> [<arg> [value] [opt] ...]. Subcommands are:",
+			"(no subcommand)",
+			"    Return details about all Redis commands.",
+			"COUNT",
+			"    Return the total number of commands in this Redis server.",
+			"INFO [<command-name> ...]",
+			"    Return details about multiple Redis commands.",
+			"HELP",
+			"    Print this help.",
 		})
 	default:
-		return ErrorReply("ERR unknown subcommand '" + args[1] + "'. Try COMMAND HELP.")
+		if modern {
+			return Array()
+		}
+		return s.subcommandError(args[1], "COMMAND")
 	}
 }
 
-func (s *RedisServer) handleModule(args []string) RESPValue {
+func (s *RedisServer) lookupCommandEntry(name string) (commandEntry, bool) {
+	name = strings.ToLower(name)
+	if parent, _, isSub := strings.Cut(name, "|"); isSub {
+		entry, ok := s.profile.data.commands[parent]
+		if !ok {
+			return commandEntry{}, false
+		}
+		sub, ok := entry.subcommands[name]
+		return sub, ok
+	}
+	entry, ok := s.profile.data.commands[name]
+	return entry, ok
+}
+
+// moduleList converts the recorded MODULE LIST entries into maps so they
+// encode as RESP3 maps for HELLO 3 clients.
+func (s *RedisServer) moduleList() RESPValue {
+	items := make([]RESPValue, 0, len(s.profile.data.modules))
+	for _, module := range s.profile.data.modules {
+		pairs := make([]RESPValue, 0, len(module.children))
+		for _, child := range module.children {
+			pairs = append(pairs, child.toValue())
+		}
+		items = append(items, Map(pairs...))
+	}
+	return Array(items...)
+}
+
+func (s *RedisServer) handleModule(state *clientState, args []string) RESPValue {
 	if len(args) < 2 {
 		return wrongArity("module")
 	}
+	sub := strings.ToLower(args[1])
+	// LOAD, LOADEX and UNLOAD are protected commands in Redis 7+.
+	if s.profile.atLeast(7, 0) && (sub == "load" || sub == "loadex" || sub == "unload") {
+		setting := s.configValue("enable-module-command")
+		if setting != "yes" && !(setting == "local" && state.trustedLocal) {
+			return ErrorReply(`ERR MODULE command not allowed. If the enable-module-command option is set to "local", you can run it from a local connection, otherwise you need to set this option in the configuration file, and then restart the server.`)
+		}
+	}
 
-	switch strings.ToLower(args[1]) {
+	switch sub {
 	case "list":
 		if len(args) != 2 {
-			return wrongArity("module|list")
+			return s.legacySubcommandError(args[1], "MODULE")
 		}
-		items := make([]RESPValue, 0, len(s.profile.SupportedModules))
-		for _, module := range s.profile.SupportedModules {
-			items = append(items, Array(
-				BulkString("name"), BulkString(module),
-				BulkString("ver"), IntegerReply(profileModuleVersion(s.profile.Version)),
-				BulkString("path"), BulkString("/usr/lib/redis/modules/"+module+".so"),
-			))
-		}
-		return Array(items...)
-	case "load", "unload":
+		return s.moduleList()
+	case "load", "loadex":
 		if len(args) < 3 {
-			return wrongArity("module|" + strings.ToLower(args[1]))
+			return s.legacySubcommandError(args[1], "MODULE")
 		}
-		return SimpleString("OK")
+		// No module file can exist: the honeypot never performs the
+		// replication transfer that would have written it.
+		return ErrorReply("ERR Error loading the extension. Please check the server logs.")
+	case "unload":
+		if len(args) != 3 {
+			return s.legacySubcommandError(args[1], "MODULE")
+		}
+		return ErrorReply("ERR Error unloading module: no such module with that name")
 	case "help":
 		return BulkArray([]string{
-			"MODULE LIST",
-			"MODULE LOAD <path> [arg ...]",
-			"MODULE UNLOAD <name>",
-			"MODULE HELP",
+			"MODULE <subcommand> [<arg> [value] [opt] ...]. Subcommands are:",
+			"LIST",
+			"    Return a list of loaded modules.",
+			"LOAD <path> [<arg> ...]",
+			"    Load a module library from <path>, passing to it any optional arguments.",
+			"UNLOAD <name>",
+			"    Unload a module.",
+			"HELP",
+			"    Print this help.",
 		})
 	default:
-		return ErrorReply("ERR unknown subcommand '" + args[1] + "'. Try MODULE HELP.")
+		return s.subcommandError(args[1], "MODULE")
 	}
 }
 
-func profileModuleVersion(version string) int64 {
-	parts := strings.Split(version, ".")
-	for len(parts) < 3 {
-		parts = append(parts, "0")
+func (s *RedisServer) handleDebug(state *clientState, args []string) RESPValue {
+	if s.profile.atLeast(7, 0) {
+		setting := s.configValue("enable-debug-command")
+		if setting != "yes" && !(setting == "local" && state.trustedLocal) {
+			return ErrorReply(`ERR DEBUG command not allowed. If the enable-debug-command option is set to "local", you can run it from a local connection, otherwise you need to set this option in the configuration file, and then restart the server.`)
+		}
 	}
-	major, _ := strconv.Atoi(parts[0])
-	minor, _ := strconv.Atoi(parts[1])
-	patch, _ := strconv.Atoi(parts[2])
-	return int64(major*10000 + minor*100 + patch)
+	return s.subcommandError(args[1], "DEBUG")
 }

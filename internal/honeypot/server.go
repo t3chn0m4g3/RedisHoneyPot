@@ -62,12 +62,25 @@ type RedisServer struct {
 	configMu sync.RWMutex
 	config   map[string]string
 
+	replMu sync.Mutex
+	repl   replicationState
+
+	stats   *serverStats
+	scripts *scriptCache
+
+	// clientsByIP counts open sessions per remote IP for connected_clients;
+	// guarded by connMu.
+	clientsByIP map[string]int
+
 	totalConnections atomic.Uint64
 	totalCommands    atomic.Uint64
 	keyspaceHits     atomic.Uint64
 	keyspaceMisses   atomic.Uint64
 	protocolErrors   atomic.Uint64
 	rejectedConns    atomic.Uint64
+	syncFull         atomic.Uint64
+	netIn            atomic.Uint64
+	netOut           atomic.Uint64
 	activeClients    atomic.Int64
 	clientIDs        atomic.Uint64
 }
@@ -83,6 +96,16 @@ type clientState struct {
 	connectLogged bool
 	suppressLogs  bool
 	trustedLocal  bool
+
+	proto      int
+	remoteIP   string
+	remoteAddr string
+	localAddr  string
+	fd         int
+	netIn      int64
+	netOut     int64
+	commands   int64
+	replica    bool
 }
 
 func DefaultServerOptions() ServerOptions {
@@ -151,16 +174,19 @@ func NewRedisServerWithOptions(options ServerOptions) (*RedisServer, error) {
 	}
 
 	s := &RedisServer{
-		listener:  listener,
-		store:     NewStore(),
-		profile:   options.Profile,
-		runtime:   newRuntimeFingerprint(options.Profile),
-		logger:    options.Logger,
-		options:   options,
-		startedAt: time.Now(),
-		done:      make(chan struct{}),
-		conns:     make(map[net.Conn]struct{}),
-		config:    cloneStringMap(options.Profile.Config),
+		listener:    listener,
+		store:       NewStore(),
+		profile:     options.Profile,
+		runtime:     newRuntimeFingerprint(options.Profile),
+		logger:      options.Logger,
+		options:     options,
+		startedAt:   time.Now(),
+		done:        make(chan struct{}),
+		conns:       make(map[net.Conn]struct{}),
+		config:      personaConfig(options.Profile),
+		stats:       newServerStats(),
+		scripts:     newScriptCache(),
+		clientsByIP: make(map[string]int),
 	}
 	return s, nil
 }
@@ -246,6 +272,7 @@ func (s *RedisServer) trackConn(conn net.Conn) (accepted bool, full bool) {
 		return false, true
 	}
 	s.conns[conn] = struct{}{}
+	s.clientsByIP[peerIP(conn.RemoteAddr())]++
 	s.wg.Add(1)
 	return true, false
 }
@@ -253,7 +280,16 @@ func (s *RedisServer) trackConn(conn net.Conn) (accepted bool, full bool) {
 func (s *RedisServer) removeConn(conn net.Conn) {
 	s.connMu.Lock()
 	delete(s.conns, conn)
+	ip := peerIP(conn.RemoteAddr())
+	if s.clientsByIP[ip]--; s.clientsByIP[ip] <= 0 {
+		delete(s.clientsByIP, ip)
+	}
 	s.connMu.Unlock()
+}
+
+func peerIP(addr net.Addr) string {
+	host, _ := splitAddr(addr)
+	return host
 }
 
 func isTemporaryAcceptError(err error) bool {
@@ -324,24 +360,47 @@ func (s *RedisServer) handleConn(conn net.Conn) {
 				s.ensureConnectLogged(state, conn)
 				s.logProtocolError(state, conn, err)
 			}
-			_, _ = conn.Write(ErrorReply("ERR Protocol error: " + err.Error()).Bytes())
+			reply := ErrorReply("ERR Protocol error: " + err.Error())
+			s.stats.record("", 0, reply, false)
+			_, _ = conn.Write(reply.Bytes())
 			break
 		}
 		if len(args) == 0 {
 			continue
 		}
 
+		started := time.Now()
 		result := s.handleCommand(state, args)
-		if !state.suppressLogs {
-			s.totalCommands.Add(1)
+		elapsed := time.Since(started).Microseconds()
+
+		var reply []byte
+		if !result.silent && !result.noReply {
+			reply = result.reply.Encode(state.proto)
+		}
+		if result.silent {
+			result.reply = RawReply("")
 		}
 
-		reply := result.reply.Bytes()
-		if s.options.IdleTimeout > 0 {
-			_ = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+		requestBytes := int64(len(encodeRequest(args)))
+		state.netIn += requestBytes
+		state.netOut += int64(len(reply))
+		state.commands++
+		s.netIn.Add(uint64(requestBytes))
+		s.netOut.Add(uint64(len(reply)))
+		if !state.suppressLogs {
+			if !result.rejected && !result.silent {
+				s.totalCommands.Add(1)
+			}
+			s.stats.record(result.statName, elapsed, result.reply, result.rejected)
 		}
-		if _, err := conn.Write(reply); err != nil {
-			break
+
+		if len(reply) > 0 {
+			if s.options.IdleTimeout > 0 {
+				_ = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			}
+			if _, err := conn.Write(reply); err != nil {
+				break
+			}
 		}
 
 		if !state.suppressLogs {
@@ -368,12 +427,36 @@ func (s *RedisServer) ensureConnectLogged(state *clientState, conn net.Conn) {
 	state.connectLogged = true
 }
 
-func cloneStringMap(src map[string]string) map[string]string {
-	dst := make(map[string]string, len(src))
-	for key, value := range src {
-		dst[key] = value
+// personaConfig starts from the CONFIG GET * defaults recorded from the real
+// server and applies the persona's deployment overrides for known keys.
+func personaConfig(profile RedisProfile) map[string]string {
+	config := make(map[string]string, len(profile.data.config))
+	for key, value := range profile.data.config {
+		config[key] = value
 	}
-	return dst
+	for key, value := range profile.ConfigOverrides {
+		if _, known := config[key]; known {
+			config[key] = value
+		}
+	}
+	return config
+}
+
+func (s *RedisServer) clientsFrom(ip string) int {
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+	if n := s.clientsByIP[ip]; n > 0 {
+		return n
+	}
+	return 1
+}
+
+func encodeRequest(args []string) []byte {
+	values := make([]RESPValue, 0, len(args))
+	for _, arg := range args {
+		values = append(values, BulkString(arg))
+	}
+	return Array(values...).Bytes()
 }
 
 func (s *clientState) userAgent() string {

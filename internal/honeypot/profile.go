@@ -1,288 +1,407 @@
 package honeypot
 
 import (
+	"embed"
 	"fmt"
-	"net"
+	"io/fs"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
+	"sync"
 )
 
-const DefaultProfileName = "legacy6"
+const DefaultProfileName = "redis74"
 
+// personaFS holds data recorded from real servers by cmd/fixture-recorder:
+// COMMAND/COMMAND DOCS replies, CONFIG GET * defaults, MODULE LIST, INFO
+// templates and a CLIENT LIST line.
+//
+//go:embed personas
+var personaFS embed.FS
+
+// RedisProfile describes one server persona. Static values that would let
+// sensors be clustered (OS kernel, memory size, monotonic clock) are chosen
+// per start from candidate lists.
 type RedisProfile struct {
-	Name             string
-	Version          string
-	GitSHA           string
-	Mode             string
-	OS               string
-	ArchBits         string
-	MultiplexingAPI  string
-	AtomicvarAPI     string
-	GCCVersion       string
-	Executable       string
-	ConfigFile       string
-	Allocator        string
-	TotalMemory      string
-	MaxMemoryPolicy  string
-	ModuleLine       string
-	Config           map[string]string
-	SupportedModules []string
+	Name    string
+	Flavor  string // "redis" or "valkey"
+	Version string
+	// CompatVersion is the Redis feature level, e.g. Valkey 8 behaves like 7.2.
+	CompatVersion string
+	RDBVersion    int
+
+	OSCandidates          []string
+	MonotonicCandidates   []string
+	TotalMemoryCandidates []int64
+	GCCVersion            string
+	Executable            string
+	ConfigFile            string
+	ProcessSupervised     string
+	// Containerized personas run as PID 1 with Docker's /data layout.
+	Containerized bool
+
+	// ConfigOverrides replace recorded CONFIG defaults that describe the
+	// recording container rather than the persona's deployment.
+	ConfigOverrides map[string]string
+
+	major, minor int
+	data         *personaData
+}
+
+var (
+	profilesOnce sync.Once
+	profiles     map[string]RedisProfile
+	profileNames []string
+)
+
+var cloudKernels = []string{
+	"Linux 5.15.0-1084-aws x86_64",
+	"Linux 6.8.0-1031-aws x86_64",
+	"Linux 6.1.0-37-cloud-amd64 x86_64",
+	"Linux 5.15.0-151-generic x86_64",
+	"Linux 6.8.0-79-generic x86_64",
+	"Linux 6.8.0-1033-azure x86_64",
+	"Linux 5.14.0-570.25.1.el9_6.x86_64 x86_64",
+	"Linux 6.1.141-155.222.amzn2023.x86_64 x86_64",
+	"Linux 6.8.0-71-generic x86_64",
+}
+
+var focalKernels = []string{
+	"Linux 5.4.0-216-generic x86_64",
+	"Linux 5.4.0-212-generic x86_64",
+	"Linux 5.4.0-205-generic x86_64",
+	"Linux 5.4.0-1145-aws x86_64",
+	"Linux 5.15.0-139-generic x86_64",
+	"Linux 5.4.0-1150-azure x86_64",
+}
+
+var vmMemorySizes = []int64{
+	2_062_913_536, 4_105_273_344, 8_218_525_696, 16_766_849_024, 33_546_739_712, 67_111_890_944,
+}
+
+func personaDefinitions() []RedisProfile {
+	dockerOverrides := func(extra map[string]string) map[string]string {
+		base := map[string]string{
+			"dir":            "/data",
+			"dbfilename":     "dump.rdb",
+			"save":           "3600 1 300 100 60 10000",
+			"protected-mode": "no",
+			"appendonly":     "no",
+		}
+		for key, value := range extra {
+			base[key] = value
+		}
+		return base
+	}
+
+	return []RedisProfile{
+		{
+			Name: "redis74", Flavor: "redis", Version: "7.4.5", RDBVersion: 12,
+			OSCandidates: cloudKernels, TotalMemoryCandidates: vmMemorySizes,
+			Executable: "/data/redis-server", ProcessSupervised: "no", Containerized: true,
+			// A misconfigured but plausible exposure: protected configs and
+			// MODULE are enabled, so the common file-write TTPs proceed.
+			ConfigOverrides: dockerOverrides(map[string]string{
+				"enable-protected-configs": "yes",
+				"enable-module-command":    "yes",
+			}),
+		},
+		{
+			Name: "legacy6", Flavor: "redis", Version: "6.2.18", RDBVersion: 9,
+			OSCandidates: focalKernels, TotalMemoryCandidates: vmMemorySizes,
+			GCCVersion: "9.4.0", Executable: "/usr/local/bin/redis-server",
+			ConfigFile: "/etc/redis/6379.conf", ProcessSupervised: "no",
+			ConfigOverrides: map[string]string{
+				"bind":           "0.0.0.0",
+				"daemonize":      "yes",
+				"dir":            "/var/lib/redis/6379",
+				"dbfilename":     "dump.rdb",
+				"logfile":        "/var/log/redis_6379.log",
+				"pidfile":        "/var/run/redis_6379.pid",
+				"protected-mode": "no",
+				"save":           "900 1 300 10 60 10000",
+				"appendonly":     "no",
+			},
+		},
+		{
+			Name: "current8", Flavor: "redis", Version: "8.8.0", RDBVersion: 14,
+			OSCandidates: cloudKernels, TotalMemoryCandidates: vmMemorySizes,
+			MonotonicCandidates: []string{
+				"X86 TSC @ 2100 ticks/us", "X86 TSC @ 2200 ticks/us", "X86 TSC @ 2400 ticks/us",
+				"X86 TSC @ 2500 ticks/us", "X86 TSC @ 2900 ticks/us", "X86 TSC @ 3000 ticks/us",
+			},
+			Executable: "/data/redis-server", ProcessSupervised: "no", Containerized: true,
+			ConfigOverrides: dockerOverrides(nil),
+		},
+		{
+			Name: "redis50", Flavor: "redis", Version: "5.0.7", RDBVersion: 9,
+			OSCandidates: focalKernels, TotalMemoryCandidates: vmMemorySizes,
+			GCCVersion: "9.3.0", Executable: "/usr/bin/redis-server",
+			ConfigFile: "/etc/redis/redis.conf", ProcessSupervised: "no",
+			ConfigOverrides: map[string]string{
+				"bind":           "0.0.0.0",
+				"daemonize":      "yes",
+				"supervised":     "systemd",
+				"dir":            "/var/lib/redis",
+				"dbfilename":     "dump.rdb",
+				"logfile":        "/var/log/redis/redis-server.log",
+				"pidfile":        "/var/run/redis/redis-server.pid",
+				"protected-mode": "no",
+				"save":           "900 1 300 10 60 10000",
+				"appendonly":     "no",
+			},
+		},
+		{
+			Name: "valkey8", Flavor: "valkey", Version: "8.1.3", CompatVersion: "7.2.4", RDBVersion: 11,
+			OSCandidates: cloudKernels, TotalMemoryCandidates: vmMemorySizes,
+			Executable: "/data/valkey-server", ProcessSupervised: "no", Containerized: true,
+			ConfigOverrides: dockerOverrides(map[string]string{
+				"enable-protected-configs": "yes",
+				"enable-module-command":    "yes",
+			}),
+		},
+	}
+}
+
+var profileAliases = map[string]string{
+	"":       DefaultProfileName,
+	"redis7": "redis74",
+	"redis6": "legacy6",
+	"redis8": "current8",
+	"redis5": "redis50",
+	"valkey": "valkey8",
+}
+
+func loadProfiles() {
+	profiles = make(map[string]RedisProfile)
+	for _, profile := range personaDefinitions() {
+		data, err := loadPersonaData(profile.Name)
+		if err != nil {
+			panic(fmt.Sprintf("persona %s: %v", profile.Name, err))
+		}
+		profile.data = data
+		compat := profile.CompatVersion
+		if compat == "" {
+			compat = profile.Version
+		}
+		profile.major, profile.minor = parseMajorMinor(compat)
+		profiles[profile.Name] = profile
+		profileNames = append(profileNames, profile.Name)
+	}
+	sort.Strings(profileNames)
 }
 
 func LookupRedisProfile(name string) (RedisProfile, bool) {
-	switch strings.ToLower(name) {
-	case "", "legacy6", "redis6":
-		return legacy6Profile(), true
-	case "current8", "redis8":
-		return current8Profile(), true
-	default:
-		return RedisProfile{}, false
+	profilesOnce.Do(loadProfiles)
+	name = strings.ToLower(name)
+	if alias, ok := profileAliases[name]; ok {
+		name = alias
 	}
+	profile, ok := profiles[name]
+	return profile, ok
 }
 
-func legacy6Profile() RedisProfile {
-	return RedisProfile{
-		Name:            "legacy6",
-		Version:         "6.2.18",
-		GitSHA:          "00000000",
-		Mode:            "standalone",
-		OS:              "Linux 5.4.0-196-generic x86_64",
-		ArchBits:        "64",
-		MultiplexingAPI: "epoll",
-		AtomicvarAPI:    "atomic-builtin",
-		GCCVersion:      "9.4.0",
-		Executable:      "/usr/bin/redis-server",
-		ConfigFile:      "/etc/redis/redis.conf",
-		Allocator:       "jemalloc-5.1.0",
-		TotalMemory:     "16763367424",
-		MaxMemoryPolicy: "noeviction",
-		Config: map[string]string{
-			"appendonly":       "no",
-			"bind":             "0.0.0.0",
-			"daemonize":        "yes",
-			"databases":        "16",
-			"dbfilename":       "dump.rdb",
-			"dir":              "/var/lib/redis",
-			"logfile":          "/var/log/redis/redis-server.log",
-			"maxmemory":        "0",
-			"maxmemory-policy": "noeviction",
-			"pidfile":          "/var/run/redis/redis-server.pid",
-			"port":             "6379",
-			"protected-mode":   "no",
-			"requirepass":      "",
-			"save":             "900 1 300 10 60 10000",
-			"supervised":       "systemd",
-		},
-	}
+// ProfileNames lists the available persona names.
+func ProfileNames() []string {
+	profilesOnce.Do(loadProfiles)
+	return append([]string(nil), profileNames...)
 }
 
-func current8Profile() RedisProfile {
-	return RedisProfile{
-		Name:             "current8",
-		Version:          "8.8.0",
-		GitSHA:           "00000000",
-		Mode:             "standalone",
-		OS:               "Linux 6.8.0-60-generic x86_64",
-		ArchBits:         "64",
-		MultiplexingAPI:  "epoll",
-		AtomicvarAPI:     "atomic-builtin",
-		GCCVersion:       "13.3.0",
-		Executable:       "/opt/redis-stack/bin/redis-server",
-		ConfigFile:       "/etc/redis/redis.conf",
-		Allocator:        "jemalloc-5.3.0",
-		TotalMemory:      "33554423808",
-		MaxMemoryPolicy:  "noeviction",
-		ModuleLine:       "module:name=search,ver=80800,api=1,filters=0,usedby=[],using=[],options=[]",
-		SupportedModules: []string{"search", "timeseries", "json", "bf"},
-		Config: map[string]string{
-			"appendonly":       "no",
-			"bind":             "0.0.0.0",
-			"daemonize":        "yes",
-			"databases":        "16",
-			"dbfilename":       "dump.rdb",
-			"dir":              "/var/lib/redis",
-			"io-threads":       "1",
-			"logfile":          "/var/log/redis/redis-server.log",
-			"maxmemory":        "0",
-			"maxmemory-policy": "noeviction",
-			"pidfile":          "/var/run/redis/redis-server.pid",
-			"port":             "6379",
-			"protected-mode":   "no",
-			"requirepass":      "",
-			"save":             "900 1 300 10 60 10000",
-			"supervised":       "systemd",
-		},
+func parseMajorMinor(version string) (int, int) {
+	parts := strings.Split(version, ".")
+	major, _ := strconv.Atoi(parts[0])
+	minor := 0
+	if len(parts) > 1 {
+		minor, _ = strconv.Atoi(parts[1])
 	}
+	return major, minor
 }
 
-func (s *RedisServer) info(section string) string {
-	section = strings.ToLower(section)
-	if section == "" || section == "default" {
-		section = "all"
-	}
+// atLeast reports whether the persona's Redis feature level is >= major.minor.
+func (p RedisProfile) atLeast(major, minor int) bool {
+	return p.major > major || (p.major == major && p.minor >= minor)
+}
 
-	uptime := int64(time.Since(s.startedAt).Seconds())
-	if uptime < 0 {
-		uptime = 0
-	}
+func (p RedisProfile) isValkey() bool { return p.Flavor == "valkey" }
 
-	port := "6379"
-	if tcpAddr, ok := s.listener.Addr().(*net.TCPAddr); ok {
-		port = strconv.Itoa(tcpAddr.Port)
-	}
+// modernErrors: Redis 7 changed many error texts ('quoted' args, "unknown
+// subcommand", "CONFIG SET failed (possibly related to argument ...)").
+func (p RedisProfile) modernErrors() bool { return p.atLeast(7, 0) }
 
-	fp := s.runtime
-	usedMemory := fp.usedMemory.Load()
-	usedMemoryRSS := fp.usedMemoryRSS.Load()
-	usedMemoryPeak := fp.usedMemoryPeak.Load()
-	if usedMemoryPeak < usedMemory {
-		usedMemoryPeak = usedMemory
-	}
-	peakPercent := 100.0
-	if usedMemoryPeak > 0 {
-		peakPercent = float64(usedMemory) / float64(usedMemoryPeak) * 100
-	}
-	fragmentationRatio := 1.0
-	if usedMemory > 0 {
-		fragmentationRatio = float64(usedMemoryRSS) / float64(usedMemory)
-	}
+type personaData struct {
+	commandsRaw  []byte
+	commands     map[string]commandEntry
+	docsRaw      []byte
+	docs         map[string][]byte
+	config       map[string]string
+	modules      []respNode
+	info         []infoSection
+	infoGroups   map[string]map[string]bool
+	clientFields []clientField
+}
 
-	sections := map[string][]string{
-		"server": {
-			"redis_version:" + s.profile.Version,
-			"redis_git_sha1:" + s.profile.GitSHA,
-			"redis_git_dirty:0",
-			"redis_build_id:" + fp.redisBuildID,
-			"redis_mode:" + s.profile.Mode,
-			"os:" + s.profile.OS,
-			"arch_bits:" + s.profile.ArchBits,
-			"multiplexing_api:" + s.profile.MultiplexingAPI,
-			"atomicvar_api:" + s.profile.AtomicvarAPI,
-			"gcc_version:" + s.profile.GCCVersion,
-			"process_id:" + strconv.Itoa(fp.processID),
-			"run_id:" + fp.runID,
-			"tcp_port:" + port,
-			"uptime_in_seconds:" + strconv.FormatInt(uptime, 10),
-			"uptime_in_days:" + strconv.FormatInt(uptime/86400, 10),
-			"hz:10",
-			"configured_hz:10",
-			"lru_clock:" + strconv.FormatInt(fp.lruClock(uptime), 10),
-			"executable:" + s.profile.Executable,
-			"config_file:" + s.profile.ConfigFile,
-		},
-		"clients": {
-			"connected_clients:" + strconv.FormatInt(s.activeClients.Load(), 10),
-			"client_recent_max_input_buffer:" + strconv.FormatInt(fp.clientRecentMaxInputBuffer, 10),
-			"client_recent_max_output_buffer:" + strconv.FormatInt(fp.clientRecentMaxOutputBuffer, 10),
-			"blocked_clients:0",
-			"tracking_clients:0",
-			"clients_in_timeout_table:0",
-		},
-		"memory": {
-			"used_memory:" + strconv.FormatInt(usedMemory, 10),
-			"used_memory_human:" + formatRedisBytes(usedMemory),
-			"used_memory_rss:" + strconv.FormatInt(usedMemoryRSS, 10),
-			"used_memory_rss_human:" + formatRedisBytes(usedMemoryRSS),
-			"used_memory_peak:" + strconv.FormatInt(usedMemoryPeak, 10),
-			"used_memory_peak_human:" + formatRedisBytes(usedMemoryPeak),
-			"used_memory_peak_perc:" + fmt.Sprintf("%.2f%%", peakPercent),
-			"used_memory_lua:" + strconv.FormatInt(fp.usedMemoryLua, 10),
-			"used_memory_lua_human:" + formatRedisBytes(fp.usedMemoryLua),
-			"maxmemory:0",
-			"maxmemory_human:0B",
-			"maxmemory_policy:" + s.profile.MaxMemoryPolicy,
-			"mem_fragmentation_ratio:" + fmt.Sprintf("%.2f", fragmentationRatio),
-			"mem_allocator:" + s.profile.Allocator,
-			"total_system_memory:" + s.profile.TotalMemory,
-		},
-		"persistence": {
-			"loading:0",
-			"rdb_changes_since_last_save:" + strconv.FormatInt(fp.rdbChangesSinceSave.Load(), 10),
-			"rdb_bgsave_in_progress:0",
-			"rdb_last_save_time:" + strconv.FormatInt(fp.rdbLastSaveTime.Load(), 10),
-			"rdb_last_bgsave_status:ok",
-			"rdb_last_bgsave_time_sec:" + strconv.FormatInt(fp.rdbLastBgsaveTimeSec.Load(), 10),
-			"aof_enabled:0",
-			"aof_rewrite_in_progress:0",
-			"aof_last_bgrewrite_status:ok",
-			"aof_last_write_status:ok",
-		},
-		"stats": {
-			"total_connections_received:" + strconv.FormatUint(s.totalConnections.Load(), 10),
-			"total_commands_processed:" + strconv.FormatUint(s.totalCommands.Load(), 10),
-			"instantaneous_ops_per_sec:0",
-			"rejected_connections:0",
-			"expired_keys:0",
-			"evicted_keys:0",
-			"keyspace_hits:" + strconv.FormatUint(s.keyspaceHits.Load(), 10),
-			"keyspace_misses:" + strconv.FormatUint(s.keyspaceMisses.Load(), 10),
-			"pubsub_channels:0",
-			"pubsub_patterns:0",
-			"latest_fork_usec:" + strconv.FormatInt(fp.latestForkUsec, 10),
-			"unexpected_error_replies:" + strconv.FormatUint(s.protocolErrors.Load(), 10),
-		},
-		"replication": {
-			"role:master",
-			"connected_slaves:0",
-			"master_replid:" + fp.masterReplID,
-			"master_replid2:0000000000000000000000000000000000000000",
-			"master_repl_offset:0",
-			"second_repl_offset:-1",
-			"repl_backlog_active:0",
-			"repl_backlog_size:1048576",
-			"repl_backlog_first_byte_offset:0",
-			"repl_backlog_histlen:0",
-		},
-		"cpu": {
-			"used_cpu_sys:" + fmt.Sprintf("%.6f", fp.cpuSys(uptime)),
-			"used_cpu_user:" + fmt.Sprintf("%.6f", fp.cpuUser(uptime)),
-			"used_cpu_sys_children:" + fmt.Sprintf("%.6f", fp.cpuSysChildrenBase),
-			"used_cpu_user_children:" + fmt.Sprintf("%.6f", fp.cpuUserChildrenBase),
-		},
-		"cluster": {
-			"cluster_enabled:0",
-		},
-	}
+type commandEntry struct {
+	raw         []byte
+	arity       int64
+	flags       map[string]bool
+	firstKey    int64
+	subcommands map[string]commandEntry
+}
 
-	if s.profile.ModuleLine != "" {
-		sections["modules"] = []string{s.profile.ModuleLine}
-	}
+type infoSection struct {
+	name  string
+	lines []infoLine
+}
 
-	keyspace := s.store.Keyspace()
-	if len(keyspace) > 0 {
-		lines := make([]string, 0, len(keyspace))
-		dbs := make([]int, 0, len(keyspace))
-		for db := range keyspace {
-			dbs = append(dbs, db)
+type infoLine struct {
+	key   string
+	value string
+}
+
+type clientField struct {
+	key   string
+	value string
+}
+
+func loadPersonaData(name string) (*personaData, error) {
+	read := func(file string) ([]byte, error) {
+		data, err := fs.ReadFile(personaFS, "personas/"+name+"/"+file)
+		if err != nil {
+			return nil, err
 		}
-		sort.Ints(dbs)
-		for _, db := range dbs {
-			lines = append(lines, fmt.Sprintf("db%d:keys=%d,expires=0,avg_ttl=0", db, keyspace[db]))
-		}
-		sections["keyspace"] = lines
+		return data, nil
+	}
+	optional := func(file string) []byte {
+		data, _ := read(file)
+		return data
 	}
 
-	order := []string{"server", "clients", "memory", "persistence", "stats", "replication", "cpu", "cluster", "modules", "keyspace"}
-	var out strings.Builder
-	for _, name := range order {
-		lines, ok := sections[name]
-		if !ok {
+	data := &personaData{infoGroups: make(map[string]map[string]bool)}
+
+	raw, err := read("command.resp")
+	if err != nil {
+		return nil, err
+	}
+	data.commandsRaw = raw
+	if data.commands, err = parseCommandTable(raw); err != nil {
+		return nil, fmt.Errorf("command.resp: %w", err)
+	}
+
+	if docs := optional("command_docs.resp"); len(docs) > 0 {
+		data.docsRaw = docs
+		if data.docs, err = parseCommandDocs(docs); err != nil {
+			return nil, fmt.Errorf("command_docs.resp: %w", err)
+		}
+	}
+
+	raw, err = read("config.resp")
+	if err != nil {
+		return nil, err
+	}
+	node, _, err := parseRESP(raw)
+	if err != nil {
+		return nil, fmt.Errorf("config.resp: %w", err)
+	}
+	data.config = make(map[string]string, len(node.children)/2)
+	for i := 0; i+1 < len(node.children); i += 2 {
+		data.config[node.children[i].str] = node.children[i+1].str
+	}
+
+	if raw := optional("module_list.resp"); len(raw) > 0 {
+		node, _, err := parseRESP(raw)
+		if err != nil {
+			return nil, fmt.Errorf("module_list.resp: %w", err)
+		}
+		data.modules = node.children
+	}
+
+	template := optional("info_everything.txt")
+	if len(template) == 0 {
+		template = optional("info_all.txt")
+	}
+	data.info = parseInfoTemplate(string(template))
+	for group, file := range map[string]string{"default": "info_default.txt", "all": "info_all.txt", "everything": "info_everything.txt"} {
+		names := make(map[string]bool)
+		for _, section := range parseInfoTemplate(string(optional(file))) {
+			names[strings.ToLower(section.name)] = true
+		}
+		data.infoGroups[group] = names
+	}
+
+	line := strings.TrimSpace(string(optional("client_list.txt")))
+	for _, field := range strings.Fields(line) {
+		key, value, _ := strings.Cut(field, "=")
+		data.clientFields = append(data.clientFields, clientField{key: key, value: value})
+	}
+	return data, nil
+}
+
+func parseCommandTable(raw []byte) (map[string]commandEntry, error) {
+	node, _, err := parseRESP(raw)
+	if err != nil {
+		return nil, err
+	}
+	commands := make(map[string]commandEntry, len(node.children))
+	for _, child := range node.children {
+		entry, name := commandEntryFromNode(child)
+		commands[name] = entry
+	}
+	return commands, nil
+}
+
+func commandEntryFromNode(node respNode) (commandEntry, string) {
+	entry := commandEntry{raw: node.raw, flags: make(map[string]bool)}
+	if len(node.children) < 6 {
+		return entry, ""
+	}
+	name := strings.ToLower(node.children[0].str)
+	entry.arity = node.children[1].num
+	for _, flag := range node.children[2].children {
+		entry.flags[flag.str] = true
+	}
+	entry.firstKey = node.children[3].num
+	if len(node.children) >= 10 {
+		entry.subcommands = make(map[string]commandEntry)
+		for _, sub := range node.children[9].children {
+			subEntry, subName := commandEntryFromNode(sub)
+			entry.subcommands[subName] = subEntry
+		}
+	}
+	return entry, name
+}
+
+// parseCommandDocs indexes COMMAND DOCS (name, doc-map pairs) by name so
+// filtered requests can return the recorded raw encoding.
+func parseCommandDocs(raw []byte) (map[string][]byte, error) {
+	node, _, err := parseRESP(raw)
+	if err != nil {
+		return nil, err
+	}
+	docs := make(map[string][]byte, len(node.children)/2)
+	for i := 0; i+1 < len(node.children); i += 2 {
+		name := strings.ToLower(node.children[i].str)
+		pair := append(append([]byte(nil), node.children[i].raw...), node.children[i+1].raw...)
+		docs[name] = pair
+	}
+	return docs, nil
+}
+
+func parseInfoTemplate(text string) []infoSection {
+	var sections []infoSection
+	for _, line := range strings.Split(text, "\r\n") {
+		if line == "" {
 			continue
 		}
-		if section != "all" && section != name {
+		if name, ok := strings.CutPrefix(line, "# "); ok {
+			sections = append(sections, infoSection{name: name})
 			continue
 		}
-		out.WriteString("# ")
-		out.WriteString(strings.ToUpper(name[:1]))
-		out.WriteString(name[1:])
-		out.WriteString("\r\n")
-		for _, line := range lines {
-			out.WriteString(line)
-			out.WriteString("\r\n")
+		if len(sections) == 0 {
+			continue
 		}
-		out.WriteString("\r\n")
+		key, value, _ := strings.Cut(line, ":")
+		last := &sections[len(sections)-1]
+		last.lines = append(last.lines, infoLine{key: key, value: value})
 	}
-	return out.String()
+	return sections
 }

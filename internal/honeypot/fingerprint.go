@@ -17,6 +17,10 @@ type runtimeFingerprint struct {
 	runID        string
 	masterReplID string
 
+	os                string
+	monotonicClock    string
+	totalSystemMemory int64
+
 	usedMemory     atomic.Int64
 	usedMemoryRSS  atomic.Int64
 	usedMemoryPeak atomic.Int64
@@ -36,11 +40,19 @@ type runtimeFingerprint struct {
 	rdbLastSaveTime      atomic.Int64
 	rdbLastBgsaveTimeSec atomic.Int64
 	rdbChangesSinceSave  atomic.Int64
+	rdbSaves             atomic.Int64
+}
+
+func pickString(candidates []string) string {
+	if len(candidates) == 0 {
+		return ""
+	}
+	return candidates[randomInt64(0, int64(len(candidates)-1))]
 }
 
 func newRuntimeFingerprint(profile RedisProfile) *runtimeFingerprint {
 	usedMemory := randomInt64(950_000, 3_200_000)
-	if profile.Name == "current8" {
+	if profile.atLeast(8, 0) {
 		usedMemory = randomInt64(1_900_000, 5_500_000)
 	}
 
@@ -50,11 +62,24 @@ func newRuntimeFingerprint(profile RedisProfile) *runtimeFingerprint {
 	usedMemoryLua := randomInt64(34*1024, 56*1024)
 	now := time.Now().Unix()
 
+	processID := int(randomInt64(300, 65000))
+	if profile.Containerized {
+		processID = 1
+	}
+	totalMemory := int64(16_766_849_024)
+	if len(profile.TotalMemoryCandidates) > 0 {
+		totalMemory = profile.TotalMemoryCandidates[randomInt64(0, int64(len(profile.TotalMemoryCandidates)-1))]
+	}
+
 	fp := &runtimeFingerprint{
 		redisBuildID: randomHex(16),
-		processID:    int(randomInt64(300, 65000)),
+		processID:    processID,
 		runID:        randomHex(40),
 		masterReplID: randomHex(40),
+
+		os:                pickString(profile.OSCandidates),
+		monotonicClock:    pickString(profile.MonotonicCandidates),
+		totalSystemMemory: totalMemory,
 
 		usedMemoryLua:  usedMemoryLua,
 		fragmentation:  fragmentation,
@@ -86,6 +111,7 @@ func (f *runtimeFingerprint) markDirty(changes int64) {
 }
 
 func (f *runtimeFingerprint) markSaved() {
+	f.rdbSaves.Add(1)
 	f.rdbChangesSinceSave.Store(0)
 	f.rdbLastSaveTime.Store(time.Now().Unix())
 	f.rdbLastBgsaveTimeSec.Store(randomInt64(0, 2))
@@ -126,6 +152,8 @@ func formatRedisBytes(bytes int64) string {
 		gib = 1024 * mib
 	)
 	switch {
+	case bytes >= 1024*gib:
+		return fmt.Sprintf("%.2fT", float64(bytes)/(1024*gib))
 	case bytes >= gib:
 		return fmt.Sprintf("%.2fG", float64(bytes)/gib)
 	case bytes >= mib:

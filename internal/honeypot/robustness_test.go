@@ -115,7 +115,8 @@ func TestInlineCommandsAcceptBareLF(t *testing.T) {
 }
 
 func TestErrorRepliesCannotInjectFrames(t *testing.T) {
-	got := string(unknownCommand([]string{"foo\r\n+OK", "a\nb"}).Bytes())
+	server := newTestServer(t, "redis74")
+	got := string(server.unknownCommand([]string{"foo\r\n+OK", "a\nb"}).Bytes())
 	if strings.Count(got, "\r\n") != 1 || !strings.HasSuffix(got, "\r\n") {
 		t.Fatalf("error reply contains embedded line breaks: %q", got)
 	}
@@ -183,7 +184,7 @@ func TestIdleTimeoutAndTruncatedBulkAreNotProtocolErrors(t *testing.T) {
 func TestCommandSizeBudget(t *testing.T) {
 	config := ParserConfig{MaxBulkBytes: 8, MaxCommandBytes: 10}
 	_, err := ReadCommand(bufio.NewReader(strings.NewReader("*2\r\n$6\r\nabcdef\r\n$6\r\nghijkl\r\n")), config)
-	if err == nil || !strings.Contains(err.Error(), "command exceeds limit") {
+	if err == nil || err.Error() != "invalid bulk length" {
 		t.Fatalf("ReadCommand error = %v, want command size limit", err)
 	}
 }

@@ -63,7 +63,7 @@ func (s *RedisServer) logCommand(state *clientState, conn net.Conn, args []strin
 		slog.Int("arg_count", len(args)-1),
 		slog.String("response_class", result.reply.Class()),
 		slog.Int("response_bytes", responseBytes),
-		slog.String("outcome", responseOutcome(result.reply)),
+		slog.String("outcome", commandOutcome(result)),
 		slog.Bool("close_after_command", result.close),
 	)
 	if len(logArgs) > 1 {
@@ -218,11 +218,15 @@ func hashString(value string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func responseOutcome(reply RESPValue) string {
-	if reply.kind == respError {
+func commandOutcome(result commandResult) string {
+	switch {
+	case result.silent:
+		return "connection_closed"
+	case result.reply.kind == respError:
 		return "error"
+	default:
+		return "success"
 	}
-	return "success"
 }
 
 func commandAnalysisAttrs(args []string) []slog.Attr {

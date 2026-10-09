@@ -30,4 +30,4 @@ STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 CMD ["/redishoneypot", "healthcheck", "-addr", "127.0.0.1:6379", "-timeout", "2s"]
 
 ENTRYPOINT ["/redishoneypot"]
-CMD ["-addr", "0.0.0.0:6379", "-proto", "tcp", "-profile", "legacy6", "-log-file", "/var/log/redishoneypot/redishoneypot.log"]
+CMD ["-addr", "0.0.0.0:6379", "-proto", "tcp", "-profile", "redis74", "-log-file", "/var/log/redishoneypot/redishoneypot.log"]

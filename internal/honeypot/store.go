@@ -3,45 +3,129 @@ package honeypot
 import (
 	"sort"
 	"sync"
+	"time"
 )
 
+type storeEntry struct {
+	value    string
+	expireAt time.Time
+}
+
+func (e storeEntry) expired(now time.Time) bool {
+	return !e.expireAt.IsZero() && !now.Before(e.expireAt)
+}
+
+// Store is the in-memory string keyspace. Expired keys are removed lazily on
+// access, like Redis' passive expiry.
 type Store struct {
-	mu  sync.RWMutex
-	dbs map[int]map[string]string
+	mu          sync.Mutex
+	dbs         map[int]map[string]storeEntry
+	expiredKeys uint64
+}
+
+type keyspaceStats struct {
+	keys    int
+	expires int
 }
 
 func NewStore() *Store {
-	return &Store{dbs: make(map[int]map[string]string)}
+	return &Store{dbs: make(map[int]map[string]storeEntry)}
 }
 
+// lookup returns the live entry for key, deleting it when it has expired.
+// The caller must hold s.mu.
+func (s *Store) lookup(db int, key string, now time.Time) (storeEntry, bool) {
+	values := s.dbs[db]
+	if values == nil {
+		return storeEntry{}, false
+	}
+	entry, ok := values[key]
+	if !ok {
+		return storeEntry{}, false
+	}
+	if entry.expired(now) {
+		delete(values, key)
+		s.expiredKeys++
+		return storeEntry{}, false
+	}
+	return entry, true
+}
+
+// Set stores value. A zero expireAt removes any TTL unless keepTTL is set.
 func (s *Store) Set(db int, key string, value string) {
+	s.SetWithExpiry(db, key, value, time.Time{}, false)
+}
+
+func (s *Store) SetWithExpiry(db int, key string, value string, expireAt time.Time, keepTTL bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.db(db)[key] = value
+	if keepTTL {
+		if old, ok := s.lookup(db, key, time.Now()); ok {
+			expireAt = old.expireAt
+		}
+	}
+	s.db(db)[key] = storeEntry{value: value, expireAt: expireAt}
 }
 
 func (s *Store) Get(db int, key string) (string, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	values := s.dbs[db]
-	if values == nil {
-		return "", false
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry, ok := s.lookup(db, key, time.Now())
+	return entry.value, ok
+}
+
+// TTL returns the remaining lifetime; hasTTL is false for persistent keys.
+func (s *Store) TTL(db int, key string) (remaining time.Duration, exists bool, hasTTL bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	entry, ok := s.lookup(db, key, now)
+	if !ok {
+		return 0, false, false
 	}
-	value, ok := values[key]
-	return value, ok
+	if entry.expireAt.IsZero() {
+		return 0, true, false
+	}
+	return entry.expireAt.Sub(now), true, true
+}
+
+// Expire sets an absolute expiry; it reports whether the key existed.
+func (s *Store) Expire(db int, key string, expireAt time.Time) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	entry, ok := s.lookup(db, key, now)
+	if !ok {
+		return false
+	}
+	if !expireAt.After(now) {
+		delete(s.dbs[db], key)
+		return true
+	}
+	entry.expireAt = expireAt
+	s.dbs[db][key] = entry
+	return true
+}
+
+func (s *Store) Persist(db int, key string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry, ok := s.lookup(db, key, time.Now())
+	if !ok || entry.expireAt.IsZero() {
+		return false
+	}
+	entry.expireAt = time.Time{}
+	s.dbs[db][key] = entry
+	return true
 }
 
 func (s *Store) Exists(db int, keys []string) int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	values := s.dbs[db]
-	if values == nil {
-		return 0
-	}
-
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
 	count := 0
 	for _, key := range keys {
-		if _, ok := values[key]; ok {
+		if _, ok := s.lookup(db, key, now); ok {
 			count++
 		}
 	}
@@ -51,15 +135,11 @@ func (s *Store) Exists(db int, keys []string) int {
 func (s *Store) Del(db int, keys []string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	values := s.dbs[db]
-	if values == nil {
-		return 0
-	}
-
+	now := time.Now()
 	count := 0
 	for _, key := range keys {
-		if _, ok := values[key]; ok {
-			delete(values, key)
+		if _, ok := s.lookup(db, key, now); ok {
+			delete(s.dbs[db], key)
 			count++
 		}
 	}
@@ -67,16 +147,20 @@ func (s *Store) Del(db int, keys []string) int {
 }
 
 func (s *Store) Keys(db int, pattern string) []string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	values := s.dbs[db]
 	if values == nil {
 		return nil
 	}
 
+	now := time.Now()
 	allKeys := pattern == "*"
 	keys := make([]string, 0, len(values))
 	for key := range values {
+		if _, ok := s.lookup(db, key, now); !ok {
+			continue
+		}
 		if allKeys || stringMatch(pattern, key, false) {
 			keys = append(keys, key)
 		}
@@ -86,9 +170,7 @@ func (s *Store) Keys(db int, pattern string) []string {
 }
 
 func (s *Store) Size(db int) int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return len(s.dbs[db])
+	return s.Keyspace()[db].keys
 }
 
 func (s *Store) FlushDB(db int) int {
@@ -106,26 +188,71 @@ func (s *Store) FlushAll() int {
 	for _, values := range s.dbs {
 		count += len(values)
 	}
-	s.dbs = make(map[int]map[string]string)
+	s.dbs = make(map[int]map[string]storeEntry)
 	return count
 }
 
-func (s *Store) Keyspace() map[int]int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	keyspace := make(map[int]int)
+// Keyspace returns live key and expiry counts per non-empty database.
+func (s *Store) Keyspace() map[int]keyspaceStats {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	keyspace := make(map[int]keyspaceStats)
 	for db, values := range s.dbs {
-		if len(values) > 0 {
-			keyspace[db] = len(values)
+		var stats keyspaceStats
+		for key, entry := range values {
+			if entry.expired(now) {
+				delete(values, key)
+				s.expiredKeys++
+				continue
+			}
+			stats.keys++
+			if !entry.expireAt.IsZero() {
+				stats.expires++
+			}
+		}
+		if stats.keys > 0 {
+			keyspace[db] = stats
 		}
 	}
 	return keyspace
 }
 
-func (s *Store) db(db int) map[string]string {
+// ExpiredKeys returns how many keys expired so far.
+func (s *Store) ExpiredKeys() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.expiredKeys
+}
+
+type snapshotEntry struct {
+	key      string
+	value    string
+	expireAt time.Time
+}
+
+// Snapshot returns live entries per database, sorted by key.
+func (s *Store) Snapshot() map[int][]snapshotEntry {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	out := make(map[int][]snapshotEntry)
+	for db, values := range s.dbs {
+		for key, entry := range values {
+			if entry.expired(now) {
+				continue
+			}
+			out[db] = append(out[db], snapshotEntry{key: key, value: entry.value, expireAt: entry.expireAt})
+		}
+		sort.Slice(out[db], func(i, j int) bool { return out[db][i].key < out[db][j].key })
+	}
+	return out
+}
+
+func (s *Store) db(db int) map[string]storeEntry {
 	values := s.dbs[db]
 	if values == nil {
-		values = make(map[string]string)
+		values = make(map[string]storeEntry)
 		s.dbs[db] = values
 	}
 	return values

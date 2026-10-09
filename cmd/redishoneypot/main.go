@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"RedisHoneyPot/internal/honeypot"
@@ -27,7 +28,7 @@ func main() {
 	flag.StringVar(&options.Address, "addr", options.Address, "listen address")
 	flag.StringVar(&options.Network, "proto", options.Network, "listen protocol")
 	flag.IntVar(&legacyLoops, "num", 1, "deprecated compatibility flag; ignored")
-	flag.StringVar(&profileName, "profile", honeypot.DefaultProfileName, "Redis persona: legacy6 or current8")
+	flag.StringVar(&profileName, "profile", honeypot.DefaultProfileName, "server persona: "+strings.Join(honeypot.ProfileNames(), ", "))
 	flag.DurationVar(&options.IdleTimeout, "idle-timeout", options.IdleTimeout, "connection idle timeout")
 	flag.IntVar(&options.MaxBulkBytes, "max-bulk-bytes", options.MaxBulkBytes, "maximum RESP bulk string size")
 	flag.IntVar(&options.MaxCommandBytes, "max-command-bytes", options.MaxCommandBytes, "maximum summed bulk payload of one command")
@@ -38,7 +39,7 @@ func main() {
 	appLogger := honeypot.NewJSONLogger(os.Stdout)
 	profile, ok := honeypot.LookupRedisProfile(profileName)
 	if !ok {
-		_, _ = fmt.Fprintf(os.Stderr, "unknown profile %q; expected legacy6 or current8\n", profileName)
+		_, _ = fmt.Fprintf(os.Stderr, "unknown profile %q; expected one of %s\n", profileName, strings.Join(honeypot.ProfileNames(), ", "))
 		os.Exit(2)
 	}
 	options.Profile = profile
