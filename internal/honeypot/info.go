@@ -132,7 +132,6 @@ func (s *RedisServer) infoValues(state *clientState) map[string]string {
 		"connected_clients":               strconv.Itoa(clients),
 		"client_recent_max_input_buffer":  strconv.FormatInt(fp.clientRecentMaxInputBuffer, 10),
 		"client_recent_max_output_buffer": strconv.FormatInt(fp.clientRecentMaxOutputBuffer, 10),
-		"maxclients":                      strconv.Itoa(s.options.MaxClients),
 		"used_memory":                     strconv.FormatInt(usedMemory, 10),
 		"used_memory_human":               formatRedisBytes(usedMemory),
 		"used_memory_rss":                 strconv.FormatInt(rss, 10),
