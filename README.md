@@ -44,6 +44,7 @@ Useful flags:
 -max-clients               Maximum concurrent connections. Default: 1024
 -max-logged-payload-bytes  Bytes of SET values, scripts and CONFIG values kept in logs. Default: 8192
 -log-file                  Optional JSONL event log file
+-log-stdout                Also write honeypot events to stdout when -log-file is set. Default: true
 -num                       Deprecated compatibility flag; accepted but ignored
 ```
 
@@ -79,6 +80,8 @@ docker compose up --build
 Docker Compose bind-mounts `./logs` on the host to `/var/log/redishoneypot` in the container. The image writes honeypot event logs to `/var/log/redishoneypot/redishoneypot.log`, so the host-side file is `logs/redishoneypot.log`.
 
 The container still writes stdout JSON logs, but the mounted event log intentionally contains only honeypot interaction events. Typical process lifecycle events such as `start`, `shutdown_requested`, `startup_failed`, and `server_failed` are kept out of `redishoneypot.log`.
+
+Add `-log-stdout=false` to keep the interaction events in the log file only, so stdout carries the lifecycle events alone. Use it where the container log is not rotated and every event would otherwise be stored twice. Without `-log-file` the flag is refused (exit code 2).
 
 If your host user is not UID/GID `1000`, pass the desired runtime IDs when starting Compose so the non-root container can write to the bind mount:
 

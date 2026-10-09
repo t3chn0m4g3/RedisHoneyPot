@@ -24,6 +24,7 @@ func main() {
 	var legacyLoops int
 	var profileName string
 	var logFilePath string
+	var logStdout bool
 
 	flag.StringVar(&options.Address, "addr", options.Address, "listen address")
 	flag.StringVar(&options.Network, "proto", options.Network, "listen protocol")
@@ -35,6 +36,7 @@ func main() {
 	flag.IntVar(&options.MaxClients, "max-clients", options.MaxClients, "maximum concurrent client connections")
 	flag.IntVar(&options.MaxLoggedPayloadBytes, "max-logged-payload-bytes", options.MaxLoggedPayloadBytes, "maximum bytes of SET values, scripts and CONFIG values in logs")
 	flag.StringVar(&logFilePath, "log-file", "", "optional JSONL honeypot event log file")
+	flag.BoolVar(&logStdout, "log-stdout", true, "also write honeypot events to stdout when -log-file is set")
 	flag.Parse()
 
 	appLogger := honeypot.NewJSONLogger(os.Stdout)
@@ -44,9 +46,12 @@ func main() {
 		os.Exit(2)
 	}
 	options.Profile = profile
+	if logFilePath == "" && !logStdout {
+		_, _ = fmt.Fprintln(os.Stderr, "-log-stdout=false needs -log-file, honeypot events would go nowhere")
+		os.Exit(2)
+	}
 
-	eventWriter := io.Writer(os.Stdout)
-	var logFile *os.File
+	var logFile io.Writer
 	if logFilePath != "" {
 		if err := os.MkdirAll(filepath.Dir(logFilePath), 0o750); err != nil {
 			appLogger.Error("log_file_setup_failed", "event", "log_file_setup_failed", "path", logFilePath, "error", err)
@@ -60,9 +65,8 @@ func main() {
 		}
 		defer file.Close()
 		logFile = file
-		eventWriter = io.MultiWriter(os.Stdout, logFile)
 	}
-	options.Logger = honeypot.NewJSONLogger(eventWriter)
+	options.Logger = honeypot.NewJSONLogger(eventWriter(os.Stdout, logFile, logStdout))
 
 	server, err := honeypot.NewRedisServerWithOptions(options)
 	if err != nil {
@@ -93,7 +97,7 @@ func main() {
 		"max_logged_payload_bytes", options.MaxLoggedPayloadBytes,
 	}
 	if logFilePath != "" {
-		startAttrs = append(startAttrs, "log_file", logFilePath)
+		startAttrs = append(startAttrs, "log_file", logFilePath, "log_stdout", logStdout)
 	}
 	appLogger.Info("start", startAttrs...)
 
@@ -102,5 +106,19 @@ func main() {
 	if err := server.Start(); err != nil && !errors.Is(err, net.ErrClosed) {
 		appLogger.Error("server_failed", "event", "server_failed", "error", err)
 		os.Exit(1)
+	}
+}
+
+// eventWriter returns where honeypot events go: stdout, the log file, or both.
+// Process lifecycle events always stay on stdout. A nil file means stdout,
+// main refuses -log-stdout=false without -log-file.
+func eventWriter(stdout io.Writer, file io.Writer, logStdout bool) io.Writer {
+	switch {
+	case file == nil:
+		return stdout
+	case logStdout:
+		return io.MultiWriter(stdout, file)
+	default:
+		return file
 	}
 }
