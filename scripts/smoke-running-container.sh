@@ -33,4 +33,4 @@ if [[ "$status" != "healthy" && "$status" != "none" ]]; then
   exit 1
 fi
 
-GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.4}" go run ./cmd/container-smoketest -addr "$addr" -log-file "$log_file" -log-offset "$log_offset"
+GOTOOLCHAIN="${GOTOOLCHAIN:-go1.27.2}" go run ./cmd/container-smoketest -addr "$addr" -log-file "$log_file" -log-offset "$log_offset"
